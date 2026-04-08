@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Card, Code, BtnPrimary, StepHeader } from '../components/ui';
+import MonacoEditor from '@monaco-editor/react';
 
 const CHALLENGE = {
   title: 'SMS fraud classifier — data pipeline',
@@ -22,11 +23,13 @@ const CHALLENGE = {
   starterCode: `import pandas as pd\n\ndef preprocess(df):\n    # your code here\n    pass`,
 };
 
-function MonacoPlaceholder({ code, onChange }) {
+function CodeEditor({ code, onChange }) {
+  const [language, setLanguage] = useState('python');  // 👈 inside function, BEFORE return
+
   return (
     <div
       className="rounded-xl overflow-hidden"
-      style={{ background: '#0d1117', border: '0.5px solid var(--border)' }}
+      style={{ border: '0.5px solid var(--border)' }}
     >
       {/* IDE title bar */}
       <div
@@ -39,45 +42,42 @@ function MonacoPlaceholder({ code, onChange }) {
         <span className="text-xs font-mono ml-1.5" style={{ color: 'var(--muted)' }}>
           solution.py
         </span>
-        <span
+        {/* Language dropdown */}
+        <select
+          value={language}
+          onChange={(e) => setLanguage(e.target.value)}
           className="ml-auto text-xs font-mono px-2 py-0.5 rounded"
           style={{ background: 'var(--purple-dim)', color: 'var(--purple)', border: '0.5px solid var(--purple)' }}
         >
-          Python 3.11
-        </span>
+          <option value="python">Python 3.11</option>
+          <option value="javascript">JavaScript</option>
+          <option value="java">Java</option>
+        </select>
       </div>
 
-      {/* Monaco placeholder */}
-      <div className="relative" style={{ minHeight: 280 }}>
-        <textarea
-          value={code}
-          onChange={(e) => onChange(e.target.value)}
-          className="w-full h-full p-5 resize-none outline-none text-xs leading-7"
-          style={{
-            background: '#0d1117',
-            color: '#e6edf3',
-            fontFamily: "'JetBrains Mono', monospace",
-            minHeight: 280,
-            caretColor: '#7c6df8',
-          }}
-          spellCheck={false}
-        />
-        {/* Monaco placeholder overlay (shown when textarea is empty) */}
-        <div
-          className="absolute top-4 right-4 text-xs font-mono px-2 py-1 rounded pointer-events-none"
-          style={{
-            background: 'rgba(124,109,248,0.063)',
-            border: '0.5px solid rgba(124,109,248,0.3)',
-            color: 'var(--dim)',
-          }}
-        >
-          Monaco Editor placeholder
-        </div>
-      </div>
+      {/* Monaco Editor */}
+      <MonacoEditor
+        height="280px"
+        language={language}
+        theme="vs-dark"
+        value={code}
+        onChange={(value) => onChange(value ?? '')}
+        loading={<div style={{ color: 'var(--muted)', padding: 20 }}>Loading editor...</div>}
+        options={{
+          fontSize: 13,
+          fontFamily: "'JetBrains Mono', monospace",
+          minimap: { enabled: false },
+          scrollBeyondLastLine: false,
+          lineNumbers: 'on',
+          renderLineHighlight: 'line',
+          tabSize: 4,
+          automaticLayout: true,
+          padding: { top: 16 },
+        }}
+      />
     </div>
   );
 }
-
 function Timer({ seconds }) {
   const mins = Math.floor(seconds / 60);
   const secs = seconds % 60;
@@ -219,7 +219,7 @@ function Challenge({ skill, onSubmit }) {
       </Card>
 
       {/* Editor */}
-      <MonacoPlaceholder code={code} onChange={handleCodeChange} />
+      <CodeEditor code={code} onChange={handleCodeChange} />
 
       {/* Test output */}
       {testOutput && (
