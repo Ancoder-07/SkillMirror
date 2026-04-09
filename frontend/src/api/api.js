@@ -9,7 +9,7 @@ const getAuthHeaders = () => {
 };
 
 // ===============================
-// ✅ PARSE RESUME (PDF FILE)
+// PARSE RESUME (PDF FILE)
 // ===============================
 export const parseResume = async (file) => {
   const formData = new FormData();
@@ -32,7 +32,7 @@ export const parseResume = async (file) => {
 };
 
 // ===============================
-// ✅ START TEST
+// START TEST
 // ===============================
 export const startTest = async (skill, level = "medium") => {
   const res = await fetch(`${BASE_URL}/start-test`, {
@@ -43,11 +43,11 @@ export const startTest = async (skill, level = "medium") => {
     },
     body: JSON.stringify({ skill, level }),
   });
-
   return res.json();
 };
 
 // ===============================
+
 // ✅ NEXT QUESTION (FIXED)
 // ===============================
 export const nextQuestion = async (test_id) => {
@@ -55,15 +55,15 @@ export const nextQuestion = async (test_id) => {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      ...getAuthHeaders(),   // 🔥 ADDED
+      ...getAuthHeaders(),
     },
     body: JSON.stringify({ test_id }),
   });
-
   return res.json();
 };
 
 // ===============================
+
 // ✅ SUBMIT ANSWER (FIXED)
 // ===============================
 export const submitAnswer = async (test_id, answer) => {
@@ -71,55 +71,63 @@ export const submitAnswer = async (test_id, answer) => {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      ...getAuthHeaders(),   // 🔥 ADDED
+      ...getAuthHeaders(),
     },
     body: JSON.stringify({ test_id, answer }),
   });
-
   return res.json();
 };
 
 // ===============================
-// ✅ EVALUATE SESSION (FIXED)
+// EVALUATE SESSION  ← FIXED
+// Sends all 4 questions + answers at once.
+// Each item in questions_and_answers:
+// {
+//   question:           { full question object },
+//   answer:             "user's answer",
+//   type:               "mcq" | "coding" | "numerical",
+//   time_taken_seconds: number,
+//   rewrite_count:      number,
+//   tab_switches:       number,
+// }
 // ===============================
 export const evaluateSession = async ({
   skill,
   level,
-  question,
-  user_code,
-  time_taken_seconds = 0,
-  rewrite_count = 0,
-  tab_switches = 0,
+  questions_and_answers,
+  test_id = null,
 }) => {
-  const res = await fetch(`${BASE_URL}/evaluate/code`, {
+  const res = await fetch(`${BASE_URL}/evaluate/session`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      ...getAuthHeaders(),   // 🔥 ADDED
+      ...getAuthHeaders(),
     },
     body: JSON.stringify({
       skill,
       level,
-      question,
-      user_code,
-      time_taken_seconds,
-      rewrite_count,
-      tab_switches,
+      questions_and_answers,
+      test_id,
     }),
   });
+
+  if (!res.ok) {
+    const error = await res.json();
+    throw new Error(error.detail || "Evaluation failed");
+  }
 
   return res.json();
 };
 
 // ===============================
-// ✅ PARSE TEXT (FIXED)
+// PARSE TEXT
 // ===============================
 export const parseText = async (text) => {
   const res = await fetch(`${BASE_URL}/parse-text`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      ...getAuthHeaders(),   // 🔥 ADDED
+      ...getAuthHeaders(),
     },
     body: JSON.stringify({ text }),
   });
