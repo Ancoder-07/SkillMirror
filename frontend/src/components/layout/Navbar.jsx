@@ -61,19 +61,41 @@ function Navbar({ page, showAuthNav, navigate, user, PAGES, NAV_STEPS }) {
       {/* Right actions */}
       <div className="flex items-center gap-3">
         {user ? (
-          <div
-            className="flex items-center gap-2 text-xs font-mono"
-            style={{ color: 'var(--muted)' }}
-          >
-            <div
-              className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold"
-              style={{ background: 'var(--purple-dim)', color: 'var(--purple)', border: '0.5px solid var(--purple)' }}
-            >
-              {user.name ? user.name[0].toUpperCase() : 'U'}
-            </div>
-            {user.name || user.email}
-          </div>
-        ) : page !== PAGES.LANDING && page !== PAGES.LOGIN ? null : (
+  <div
+    className="flex items-center gap-3 text-xs font-mono"
+    style={{ color: 'var(--muted)' }}
+  >
+    {/* Avatar */}
+    <div
+      className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold"
+      style={{
+        background: 'var(--purple-dim)',
+        color: 'var(--purple)',
+        border: '0.5px solid var(--purple)'
+      }}
+    >
+      {user.name ? user.name[0].toUpperCase() : 'U'}
+    </div>
+
+    {/* Name */}
+    {user.name || user.email}
+
+    {/* 🔥 LOGOUT BUTTON */}
+    <button
+      onClick={() => {
+        localStorage.removeItem("token");
+        localStorage.removeItem("user");
+        window.location.reload();
+      }}
+      className="text-xs px-2 py-1 rounded"
+      style={{
+        border: '0.5px solid var(--border)',
+        cursor: 'pointer'
+      }}
+    >
+      Logout
+    </button>
+  </div> ): page !== PAGES.LANDING && page !== PAGES.LOGIN ? null : (
           page === PAGES.LANDING && (
             <button
               onClick={() => navigate(PAGES.LOGIN)}
