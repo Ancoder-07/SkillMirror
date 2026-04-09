@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.routes import auth
+from app.routes import profile
 
 from app.core.config import settings
 
@@ -36,6 +37,7 @@ def get_application() -> FastAPI:
     app.include_router(parse_router, prefix="/api")
     app.include_router(auth.router, prefix="/api")
     app.include_router(evaluation_router, prefix="/api")
+    app.include_router(profile.router, prefix="/api")
 
     return app
 
