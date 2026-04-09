@@ -10,6 +10,7 @@ from app.routes.flow import router as flow_router
 from app.routes.run_code import router as run_code_router
 from app.routes.parse import router as parse_router
 from app.routes.evaluation import router as evaluation_router
+from app.core.database import test_db_connection
 
 
 def get_application() -> FastAPI:
@@ -42,6 +43,11 @@ def get_application() -> FastAPI:
 # ✅ Create app
 app = get_application()
 
+# 🔥 ADD THIS
+
+@app.on_event("startup")
+async def startup():
+    await test_db_connection()
 
 # ✅ Health check
 @app.get("/")

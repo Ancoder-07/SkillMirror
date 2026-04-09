@@ -4,6 +4,8 @@ from typing import Dict, Any
 from pydantic import BaseModel
 
 from app.services.ai_service import generate_questions
+from app.core.database import evaluations_collection
+from app.services.evaluation import evaluate_code  # 🔥 ADD THIS
 
 router = APIRouter()
 
@@ -36,23 +38,34 @@ def start_test(data: StartTestRequest):
     skill = data.skill
     level = data.level
 
-    # Generate questions using AI
     result = generate_questions(skill, level)
 
     if "error" in result:
         return result
 
     questions = result["questions"]
-
-    # Create unique test ID
     test_id = str(uuid4())
 
-    # Store session
     test_sessions[test_id] = {
         "questions": questions,
         "current_index": 0,
-        "answers": []
+        "answers": [],
+        "skill": skill,
+        "level": level
     }
+
+    try:
+        evaluations_collection.insert_one({
+            "test_id": test_id,
+            "skill": skill,
+            "level": level,
+            "questions": questions,
+            "answers": [],
+            "current_index": 0,
+            "completed": False
+        })
+    except Exception as e:
+        print("MongoDB Insert Error:", e)
 
     return {
         "test_id": test_id,
@@ -75,8 +88,54 @@ def next_question(data: NextQuestionRequest):
 
     session["current_index"] += 1
 
-    # Check if test completed
+    try:
+        evaluations_collection.update_one(
+            {"test_id": test_id},
+            {"$set": {"current_index": session["current_index"]}}
+        )
+    except Exception as e:
+        print("MongoDB Update Error:", e)
+
+    # =========================
+    # 🔥 TEST COMPLETED → RUN EVALUATION
+    # =========================
     if session["current_index"] >= len(session["questions"]):
+
+        try:
+            evaluations = []
+
+            for i, q in enumerate(session["questions"]):
+                user_answer = ""
+                if i < len(session["answers"]):
+                    user_answer = session["answers"][i]["answer"]
+
+                result = evaluate_code(
+                    skill=session["skill"],
+                    level=session["level"],
+                    question=q["question"],
+                    user_code=user_answer
+                )
+
+                evaluations.append(result)
+
+            # 🔥 average score
+            avg_score = sum(e.get("score", 0) for e in evaluations) // len(evaluations)
+
+            # 🔥 save to DB
+            evaluations_collection.update_one(
+                {"test_id": test_id},
+                {
+                    "$set": {
+                        "evaluations": evaluations,
+                        "final_score": avg_score,
+                        "completed": True
+                    }
+                }
+            )
+
+        except Exception as e:
+            print("Evaluation Error:", e)
+
         return {
             "message": "Test completed",
             "total_questions": len(session["questions"])
@@ -102,10 +161,20 @@ def submit_answer(data: SubmitAnswerRequest):
 
     index = session["current_index"]
 
-    session["answers"].append({
+    answer_data = {
         "question_id": index + 1,
         "answer": answer
-    })
+    }
+
+    session["answers"].append(answer_data)
+
+    try:
+        evaluations_collection.update_one(
+            {"test_id": test_id},
+            {"$push": {"answers": answer_data}}
+        )
+    except Exception as e:
+        print("MongoDB Answer Save Error:", e)
 
     return {
         "message": "Answer submitted",
