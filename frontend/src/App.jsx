@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import React, { useState } from 'react';
 import Navbar from './components/layout/Navbar';
 import Landing from './pages/Landing';
@@ -27,6 +28,8 @@ export const NAV_STEPS = [
   { key: PAGES.SCORECARD, label: '4. Results' },
 ];
 
+
+
 function App() {
   const [page, setPage] = useState(PAGES.LANDING);
   const [user, setUser] = useState(null);
@@ -34,15 +37,34 @@ function App() {
   const [resumeData, setResumeData] = useState(null);
   const [selectedSkill, setSelectedSkill] = useState(null);
 
+  useEffect(() => {
+  const token = localStorage.getItem("token");
+  const userData = localStorage.getItem("user");
+
+  if (token && userData) {
+    setUser(JSON.parse(userData));
+
+    // 👉 stay logged in after refresh
+    setPage(PAGES.RESUME);
+  } else {
+    setPage(PAGES.LANDING);
+  }
+}, []);
+
   const navigate = (target) => {
     setPage(target);
     window.scrollTo(0, 0);
   };
 
-  const handleLogin = (userData) => {
-    setUser(userData);
-    navigate(PAGES.PROFILE);
-  };
+const handleLogin = (userData) => {
+  setUser(userData);
+
+  if (userData.isNewUser) {
+    navigate(PAGES.PROFILE);   // ✅ go to profile after signup
+  } else {
+    navigate(PAGES.RESUME);    // ✅ go to next step after login
+  }
+};
 
   const handleProfileSave = (profileData) => {
     setProfile(profileData);

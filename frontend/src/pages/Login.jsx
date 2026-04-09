@@ -26,17 +26,35 @@ function Login({ onLogin }) {
     let response;
 
     if (isSignup) {
-      // SIGNUP
-      await axios.post("http://127.0.0.1:8000/api/auth/signup", {
-        name: form.name,
-        email: form.email,
-        password: form.password,
-      });
+  // 1️⃣ signup
+  await axios.post("http://127.0.0.1:8000/api/auth/signup", {
+    name: form.name,
+    email: form.email,
+    password: form.password,
+  });
 
-      alert("Signup successful! Please login.");
-      setIsSignup(false);
-      return;
-    } else {
+  // 2️⃣ immediately login to get token 🔥
+  const response = await axios.post("http://127.0.0.1:8000/api/auth/login", {
+    email: form.email,
+    password: form.password,
+  });
+
+  // 3️⃣ save token
+  localStorage.setItem("token", response.data.access_token);
+  localStorage.setItem("user", JSON.stringify({
+  email: form.email,
+  name: form.name
+  }));
+
+  // 👉 directly move to profile setup
+  onLogin({
+    email: form.email,
+    name: form.name,
+    isNewUser: true   // ⭐ important
+  });
+
+  return;
+}else {
       // LOGIN
       response = await axios.post("http://127.0.0.1:8000/api/auth/login", {
         email: form.email,
@@ -47,11 +65,17 @@ function Login({ onLogin }) {
     // Save token
     localStorage.setItem("token", response.data.access_token);
 
+    localStorage.setItem("user", JSON.stringify({
+      email: form.email,
+      name: form.email.split("@")[0]
+  }));  
+
     // Pass user forward
     onLogin({
-      email: form.email,
-      name: form.email.split("@")[0],
-    });
+  email: form.email,
+  name: form.email.split("@")[0],
+  isNewUser: false   // ⭐ important
+});
 
   } catch (error) {
   console.error(error);
