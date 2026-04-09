@@ -1,3 +1,4 @@
+import axios from 'axios';
 import React, { useState } from 'react';
 import { Card, Input, Select, BtnPrimary, StepHeader } from '../components/ui';
 
@@ -51,9 +52,35 @@ function ProfileSetup({ onSave, user }) {
     }));
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
+  try {
+    const token = localStorage.getItem("token");
+
+    await axios.post(
+      "http://127.0.0.1:8000/api/profile/setup",
+      {
+        email: user.email,
+        name: form.name,
+        role: form.role,
+        experience: form.experience,
+        goals: form.goals,
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+
+    alert("Profile saved successfully");
+
     onSave(form);
-  };
+
+  } catch (error) {
+    console.error(error);
+    alert("Error saving profile");
+  }
+};
 
   const isValid = form.name && form.role && form.experience;
 
