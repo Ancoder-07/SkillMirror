@@ -1,45 +1,50 @@
 import React, { useState, useRef } from 'react';
 import { StepHeader, BtnPrimary } from '../components/ui';
-import { parseResume, parseText } from '../api/api'; // ✅ your fix: separate parseText import
+import { parseResume } from "../api/api";
 
-/* ─────────────────────────────────────────
-   Constants
-───────────────────────────────────────── */
 const TAG_LABELS = { high: 'High claim', med: 'Medium claim', low: 'Low claim' };
-
-const TAG_COLORS = {
-  high: { bg: '#FCEBEB', border: '#F09595', color: '#791F1F' },
-  med:  { bg: '#FAEEDA', border: '#FAC775', color: '#633806' },
-  low:  { bg: '#EAF3DE', border: '#C0DD97', color: '#27500A' },
+const TAG_STYLES = {
+  high: {
+    active:   { bg: 'rgba(226,75,74,0.12)',  border: '#E24B4A', color: '#E24B4A' },
+    inactive: { bg: 'transparent',            border: 'var(--border)', color: 'var(--dim)' },
+  },
+  med: {
+    active:   { bg: 'rgba(239,159,39,0.12)', border: '#EF9F27', color: '#EF9F27' },
+    inactive: { bg: 'transparent',            border: 'var(--border)', color: 'var(--dim)' },
+  },
+  low: {
+    active:   { bg: 'rgba(99,153,34,0.12)',  border: '#639922', color: '#639922' },
+    inactive: { bg: 'transparent',            border: 'var(--border)', color: 'var(--dim)' },
+  },
 };
 
 const TABS = ['PDF upload', 'Paste text'];
 
-/* ─────────────────────────────────────────
-   TagSelector
-───────────────────────────────────────── */
 function TagSelector({ value, onChange }) {
   return (
-    <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+    <div style={{ display: 'flex', gap: 6 }}>
       {['high', 'med', 'low'].map((t) => {
         const active = value === t;
+        const s = active ? TAG_STYLES[t].active : TAG_STYLES[t].inactive;
         return (
           <button
             key={t}
             onClick={(e) => { e.stopPropagation(); onChange(t); }}
             style={{
-              padding: '3px 10px',
-              borderRadius: 20,
-              border: `0.5px solid ${active ? TAG_COLORS[t].border : 'var(--color-border-tertiary)'}`,
-              background: active ? TAG_COLORS[t].bg : 'transparent',
-              color: active ? TAG_COLORS[t].color : 'var(--color-text-secondary)',
+              padding: '4px 10px',
+              borderRadius: 6,
               fontSize: 11,
-              fontFamily: 'var(--font-mono, monospace)',
+              fontFamily: 'var(--font)',
+              fontWeight: active ? 600 : 400,
               cursor: 'pointer',
-              transition: 'all .15s',
+              transition: 'all 0.15s',
+              background: s.bg,
+              border: `0.5px solid ${s.border}`,
+              color: s.color,
+              whiteSpace: 'nowrap',
             }}
           >
-            {TAG_LABELS[t]}
+            {active ? '✓ ' : ''}{TAG_LABELS[t]}
           </button>
         );
       })}
@@ -47,21 +52,6 @@ function TagSelector({ value, onChange }) {
   );
 }
 
-/* ─────────────────────────────────────────
-   Shared skill mapper (your logic, DRY'd)
-───────────────────────────────────────── */
-const mapSkills = (data, sourceLabel = 'resume') =>
-  data.all_skills.map((skill) => ({
-    name: skill,
-    evidence: data.boldest_claims?.includes(skill)
-      ? `Strong evidence in ${sourceLabel}`
-      : `Mentioned in ${sourceLabel}`,
-    tag: data.boldest_claims?.includes(skill) ? 'high' : 'med',
-  }));
-
-/* ─────────────────────────────────────────
-   ResumeUpload
-───────────────────────────────────────── */
 function ResumeUpload({ onNext }) {
   const [activeTab, setActiveTab] = useState(0);
   const [file, setFile]           = useState(null);
@@ -73,178 +63,101 @@ function ResumeUpload({ onNext }) {
   const [dragging, setDragging]   = useState(false);
   const fileRef = useRef();
 
-  /* ── Tab switch ── */
-  const handleTabSwitch = (i) => {
-    setActiveTab(i);
-    setParsed(false);
-    setClaims([]);
-    setError(null);
-  };
-
-  /* ── PDF parse (your logic) ── */
   const handleFile = async (f) => {
     if (!f) return;
-    if (!f.name.endsWith('.pdf')) {
-      setError('Only PDF files are supported.');
-      return;
-    }
-    setFile(f);
-    setError(null);
-    setLoading(true);
-    setParsed(false);
-    setClaims([]);
-
+    if (!f.name.endsWith('.pdf')) { setError('Only PDF files are supported.'); return; }
+    setFile(f); setError(null); setLoading(true); setParsed(false); setClaims([]);
     try {
       const data = await parseResume(f);
-      setClaims(mapSkills(data, 'resume'));
-      setParsed(true);
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
+      const mapped = data.all_skills.map((skill) => ({
+        name: skill,
+        evidence: data.boldest_claims?.includes(skill) ? 'Strong evidence in resume' : 'Mentioned in resume',
+        tag: data.boldest_claims?.includes(skill) ? 'high' : 'med',
+      }));
+      setClaims(mapped); setParsed(true);
+    } catch (err) { setError(err.message); }
+    finally { setLoading(false); }
   };
 
-  /* ── Text parse (your fix: uses parseText, not blob hack) ── */
   const handleParseText = async () => {
-    if (text.length < 10) return;
-    setError(null);
-    setLoading(true);
-    setParsed(false);
-    setClaims([]);
-
+    if (text.length < 50) return;
+    setError(null); setLoading(true); setParsed(false); setClaims([]);
     try {
-      const data = await parseText(text);           // ✅ correct API call
-      setClaims(mapSkills(data, 'text'));
-      setParsed(true);
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
+      const blob = new Blob([text], { type: 'application/pdf' });
+      const textFile = new File([blob], 'resume.txt', { type: 'text/plain' });
+      const data = await parseResume(textFile);
+      const mapped = data.all_skills.map((skill) => ({
+        name: skill,
+        evidence: data.boldest_claims?.includes(skill) ? 'Strong evidence in resume' : 'Mentioned in resume',
+        tag: data.boldest_claims?.includes(skill) ? 'high' : 'med',
+      }));
+      setClaims(mapped); setParsed(true);
+    } catch (err) { setError(err.message); }
+    finally { setLoading(false); }
   };
 
-  /* ── Tag edit ── */
-  const handleTagChange = (index, newTag) =>
+  const handleTagChange = (index, newTag) => {
     setClaims((prev) => prev.map((c, i) => (i === index ? { ...c, tag: newTag } : c)));
+  };
 
   const handleDrop = (e) => {
-    e.preventDefault();
-    setDragging(false);
+    e.preventDefault(); setDragging(false);
     const f = e.dataTransfer.files[0];
     if (f) handleFile(f);
   };
 
   const handleNext = () => onNext({ claims, file: file?.name });
-
   const canProceed = parsed && claims.length > 0;
 
-  /* ─── Styles ─── */
-  const S = {
-    wrap: { maxWidth: 860, margin: '0 auto', padding: '3rem 2rem' },
-    tab: (active) => ({
-      padding: '5px 16px',
-      borderRadius: 20,
-      border: `0.5px solid ${active ? '#AFA9EC' : 'var(--color-border-tertiary)'}`,
-      background: active ? '#EEEDFE' : 'transparent',
-      color: active ? '#3C3489' : 'var(--color-text-secondary)',
-      fontSize: 13,
-      cursor: 'pointer',
-      transition: 'all .15s',
-    }),
-    dropZone: {
-      border: `1px dashed ${dragging ? '#7F77DD' : 'var(--color-border-secondary)'}`,
-      borderRadius: 16,
-      padding: '3rem 2rem',
-      textAlign: 'center',
-      cursor: 'pointer',
-      background: dragging ? '#EEEDFE22' : 'transparent',
-      transition: 'all .2s',
-      marginBottom: 20,
-    },
-    textarea: {
-      width: '100%',
-      padding: '12px 14px',
-      border: '0.5px solid var(--color-border-tertiary)',
-      borderRadius: 8,
-      fontSize: 14,
-      background: 'var(--color-background-primary)',
-      color: 'var(--color-text-primary)',
-      resize: 'none',
-      outline: 'none',
-      fontFamily: 'var(--font-sans, sans-serif)',
-      lineHeight: 1.6,
-    },
-    parseBtn: (disabled) => ({
-      marginTop: 10,
-      padding: '7px 18px',
-      borderRadius: 8,
-      border: '0.5px solid var(--color-border-secondary)',
-      background: disabled ? 'var(--color-background-secondary)' : 'var(--color-background-primary)',
-      color: disabled ? 'var(--color-text-secondary)' : 'var(--color-text-primary)',
-      fontSize: 13,
-      cursor: disabled ? 'not-allowed' : 'pointer',
-      opacity: disabled ? 0.5 : 1,
-    }),
-    claimsCard: {
-      border: '0.5px solid var(--color-border-tertiary)',
-      borderRadius: 12,
-      overflow: 'hidden',
-      marginBottom: 20,
-    },
-    claimsHeader: {
-      display: 'flex',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      padding: '10px 18px',
-      borderBottom: '0.5px solid var(--color-border-tertiary)',
-      background: 'var(--color-background-secondary)',
-    },
-    mono: { fontSize: 11, fontFamily: 'var(--font-mono, monospace)', letterSpacing: '.1em', color: 'var(--color-text-secondary)' },
-    claimsCount: { fontSize: 12, fontFamily: 'var(--font-mono, monospace)', color: '#534AB7' },
-    claimsHint: {
-      padding: '7px 18px',
-      fontSize: 12,
-      fontFamily: 'var(--font-mono, monospace)',
-      color: 'var(--color-text-secondary)',
-      borderBottom: '0.5px solid var(--color-border-tertiary)',
-      background: 'var(--color-background-secondary)',
-    },
-    claimRow: (last) => ({
-      display: 'flex',
-      alignItems: 'center',
-      gap: 12,
-      padding: '12px 18px',
-      flexWrap: 'wrap',
-      borderBottom: last ? 'none' : '0.5px solid var(--color-border-tertiary)',
-    }),
-  };
-
   return (
-    <div style={S.wrap}>
+    <div style={{ maxWidth: 860, margin: '0 auto', padding: '3rem 2rem' }}>
       <StepHeader
         step="STEP 01 — PARSE"
         title="Upload your resume"
         subtitle="System reads your resume and extracts every skill claim. You can adjust the confidence level for each skill before proceeding."
       />
 
-      {/* ── Tabs ── */}
+      {/* Tabs */}
       <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
         {TABS.map((tab, i) => (
-          <button key={tab} onClick={() => handleTabSwitch(i)} style={S.tab(activeTab === i)}>
+          <button
+            key={tab}
+            onClick={() => { setActiveTab(i); setParsed(false); setClaims([]); setError(null); }}
+            style={{
+              padding: '6px 16px',
+              borderRadius: 8,
+              fontSize: 12,
+              cursor: 'pointer',
+              transition: 'all 0.2s',
+              fontFamily: 'var(--font)',
+              fontWeight: activeTab === i ? 600 : 400,
+              background: activeTab === i ? 'var(--purple-dim)' : 'transparent',
+              border: activeTab === i ? '0.5px solid var(--purple)' : '0.5px solid var(--border)',
+              color: activeTab === i ? 'var(--text)' : 'var(--muted)',
+            }}
+          >
             {tab}
           </button>
         ))}
       </div>
 
-      {/* ── PDF Upload tab ── */}
+      {/* PDF Upload Tab */}
       {activeTab === 0 && (
         <div
-          style={S.dropZone}
+          onClick={() => fileRef.current.click()}
           onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
           onDragLeave={() => setDragging(false)}
           onDrop={handleDrop}
-          onClick={() => fileRef.current.click()}
+          style={{
+            border: `1.5px dashed ${dragging ? 'var(--purple)' : file && !error ? '#639922' : 'var(--border2)'}`,
+            borderRadius: 16,
+            padding: '3rem 2rem',
+            textAlign: 'center',
+            cursor: 'pointer',
+            background: dragging ? 'var(--purple-dim)' : 'var(--surface)',
+            transition: 'all 0.2s',
+            marginBottom: 24,
+          }}
         >
           <input
             ref={fileRef}
@@ -255,104 +168,236 @@ function ResumeUpload({ onNext }) {
           />
 
           {/* Upload icon */}
-          <div style={{
-            width: 36, height: 36, margin: '0 auto 12px',
-            border: '1.5px solid var(--color-border-secondary)',
-            borderRadius: 8,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-          }}>
+          {!file && !loading && (
             <div style={{
-              width: 0, height: 0,
-              borderLeft: '7px solid transparent',
-              borderRight: '7px solid transparent',
-              borderBottom: `10px solid ${dragging ? '#7F77DD' : 'var(--color-text-secondary)'}`,
-            }} />
-          </div>
+              width: 48, height: 48, borderRadius: 12,
+              background: 'var(--purple-dim)',
+              border: '0.5px solid var(--purple)',
+              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: 20, marginBottom: 16,
+            }}>
+              ⬆
+            </div>
+          )}
 
           {loading && (
-            <p style={{ fontSize: 13, fontFamily: 'var(--font-mono, monospace)', color: '#534AB7' }}>
-              Parsing resume...
-            </p>
+            <div style={{ marginBottom: 8 }}>
+              <div style={{
+                width: 48, height: 48, borderRadius: '50%',
+                border: '2px solid var(--purple-dim)',
+                borderTop: '2px solid var(--purple)',
+                display: 'inline-block',
+                animation: 'spin 0.8s linear infinite',
+              }} />
+              <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+              <p style={{ color: 'var(--purple)', fontSize: 12, fontFamily: 'monospace', marginTop: 12 }}>
+                Parsing resume...
+              </p>
+            </div>
           )}
+
           {error && (
-            <p style={{ fontSize: 12, fontFamily: 'var(--font-mono, monospace)', color: '#A32D2D' }}>
+            <div style={{
+              display: 'inline-flex', alignItems: 'center', gap: 8,
+              background: 'rgba(226,75,74,0.10)',
+              border: '0.5px solid #E24B4A',
+              borderRadius: 8, padding: '8px 16px',
+              color: '#E24B4A', fontSize: 12, fontFamily: 'monospace',
+            }}>
               ✗ {error}
-            </p>
+            </div>
           )}
+
           {file && !loading && !error && (
             <>
-              <p style={{ fontSize: 14, fontWeight: 500, color: '#3B6D11', marginBottom: 4 }}>
-                ✓ {file.name}
+              <div style={{
+                width: 48, height: 48, borderRadius: 12,
+                background: 'rgba(99,153,34,0.12)',
+                border: '0.5px solid #639922',
+                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 20, marginBottom: 12,
+              }}>
+                ✓
+              </div>
+              <p style={{ fontWeight: 700, fontSize: 14, color: '#639922', margin: '0 0 4px' }}>
+                {file.name}
               </p>
-              <p style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>
+              <p style={{ fontSize: 12, color: 'var(--muted)', margin: 0 }}>
                 {(file.size / 1024).toFixed(1)} KB · Click to replace
               </p>
             </>
           )}
-          {!file && !loading && !error && (
+
+          {!file && !loading && (
             <>
-              <p style={{ fontSize: 14, fontWeight: 500, color: 'var(--color-text-primary)', marginBottom: 4 }}>
+              <p style={{ fontWeight: 700, fontSize: 14, margin: '0 0 4px' }}>
                 Drop your resume here
               </p>
-              <p style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>PDF only — max 5MB</p>
+              <p style={{ fontSize: 12, color: 'var(--muted)', margin: 0 }}>
+                PDF only — max 5MB
+              </p>
             </>
           )}
         </div>
       )}
 
-      {/* ── Paste text tab ── */}
+      {/* Paste Text Tab */}
       {activeTab === 1 && (
-        <div style={{ marginBottom: 20 }}>
+        <div style={{ marginBottom: 24 }}>
           <textarea
-            rows={8}
             placeholder="Paste your resume text here..."
             value={text}
             onChange={(e) => setText(e.target.value)}
-            style={S.textarea}
-            onFocus={(e) => (e.target.style.borderColor = '#7F77DD')}
-            onBlur={(e) => (e.target.style.borderColor = 'var(--color-border-tertiary)')}
+            rows={8}
+            style={{
+              width: '100%',
+              padding: '12px 16px',
+              borderRadius: 10,
+              fontSize: 13,
+              outline: 'none',
+              resize: 'vertical',
+              background: 'var(--surface)',
+              border: '0.5px solid var(--border2)',
+              color: 'var(--text)',
+              fontFamily: 'var(--font)',
+              boxSizing: 'border-box',
+              transition: 'border-color 0.15s',
+            }}
+            onFocus={(e) => (e.target.style.borderColor = 'var(--purple)')}
+            onBlur={(e)  => (e.target.style.borderColor = 'var(--border2)')}
           />
-          {text.length > 10 && (
-            <button onClick={handleParseText} disabled={loading} style={S.parseBtn(loading)}>
+          {text.length > 50 && (
+            <button
+              onClick={handleParseText}
+              disabled={loading}
+              style={{
+                marginTop: 10,
+                padding: '8px 20px',
+                borderRadius: 8,
+                fontSize: 12,
+                fontWeight: 700,
+                cursor: loading ? 'not-allowed' : 'pointer',
+                border: 'none',
+                fontFamily: 'var(--font)',
+                background: loading ? 'var(--surface)' : 'var(--purple)',
+                color: loading ? 'var(--dim)' : '#fff',
+                transition: 'opacity 0.15s',
+              }}
+            >
               {loading ? 'Parsing...' : 'Parse text →'}
             </button>
           )}
           {error && (
-            <p style={{ fontSize: 12, fontFamily: 'var(--font-mono, monospace)', color: '#A32D2D', marginTop: 8 }}>
+            <p style={{
+              marginTop: 8, fontSize: 12, fontFamily: 'monospace',
+              color: '#E24B4A',
+            }}>
               ✗ {error}
             </p>
           )}
         </div>
       )}
 
-      {/* ── Extracted claims table ── */}
+      {/* Extracted Claims Table */}
       {parsed && claims.length > 0 && (
-        <div style={S.claimsCard}>
-          <div style={S.claimsHeader}>
-            <span style={S.mono}>EXTRACTED CLAIMS</span>
-            <span style={S.claimsCount}>{claims.length} skills detected</span>
+        <div style={{
+          borderRadius: 12,
+          overflow: 'hidden',
+          border: '0.5px solid var(--border)',
+          background: 'var(--card)',
+          marginBottom: 24,
+        }}>
+          {/* Table Header */}
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            padding: '12px 20px',
+            borderBottom: '0.5px solid var(--border)',
+            background: 'var(--surface)',
+          }}>
+            <span style={{
+              fontSize: 11, fontFamily: 'monospace', letterSpacing: '0.12em',
+              color: 'var(--dim)', textTransform: 'uppercase',
+            }}>
+              Extracted Claims
+            </span>
+            <span style={{
+              fontSize: 11, fontFamily: 'monospace',
+              color: 'var(--purple)', fontWeight: 600,
+            }}>
+              {claims.length} skills detected
+            </span>
           </div>
-          <div style={S.claimsHint}>
+
+          {/* Instruction hint */}
+          <div style={{
+            padding: '8px 20px',
+            fontSize: 11,
+            fontFamily: 'monospace',
+            color: 'var(--dim)',
+            borderBottom: '0.5px solid var(--border)',
+            background: 'var(--surface)',
+            letterSpacing: '0.02em',
+          }}>
             Adjust confidence level for each skill before proceeding ↓
           </div>
+
+          {/* Column headers */}
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: '1fr 2fr auto',
+            padding: '8px 20px',
+            borderBottom: '0.5px solid var(--border)',
+            background: 'var(--surface)',
+            gap: 16,
+          }}>
+            {['Skill', 'Evidence', 'Confidence'].map((h) => (
+              <span key={h} style={{
+                fontSize: 10, fontFamily: 'monospace',
+                color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '0.1em',
+              }}>
+                {h}
+              </span>
+            ))}
+          </div>
+
+          {/* Rows */}
           {claims.map((claim, i) => (
-            <div key={claim.name} style={S.claimRow(i === claims.length - 1)}>
-              <div style={{ flex: 1, fontSize: 14, fontWeight: 500, color: 'var(--color-text-primary)', minWidth: 100 }}>
-                {claim.name}
-              </div>
-              <div style={{ flex: 2, fontSize: 12, color: 'var(--color-text-secondary)', minWidth: 120 }}>
-                {claim.evidence}
-              </div>
-              <TagSelector value={claim.tag} onChange={(tag) => handleTagChange(i, tag)} />
+            <div
+              key={claim.name}
+              style={{
+                display: 'grid',
+                gridTemplateColumns: '1fr 2fr auto',
+                alignItems: 'center',
+                padding: '12px 20px',
+                gap: 16,
+                borderBottom: i < claims.length - 1 ? '0.5px solid var(--border)' : 'none',
+                transition: 'background 0.15s',
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--surface)')}
+              onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+            >
+              <span style={{ fontSize: 13, fontWeight: 700 }}>{claim.name}</span>
+              <span style={{ fontSize: 12, color: 'var(--muted)' }}>{claim.evidence}</span>
+              <TagSelector value={claim.tag} onChange={(t) => handleTagChange(i, t)} />
             </div>
           ))}
         </div>
       )}
 
-      {/* ── Empty state ── */}
-      
+      {/* Empty state */}
+      {!parsed && !loading && (
+        <div style={{
+          textAlign: 'center', fontSize: 12,
+          fontFamily: 'monospace', color: 'var(--dim)',
+          padding: '24px 0',
+        }}>
+          Upload a resume to see extracted skill claims
+        </div>
+      )}
 
-      <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 4 }}>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 8 }}>
         <BtnPrimary onClick={handleNext} disabled={!canProceed}>
           Build skill map →
         </BtnPrimary>

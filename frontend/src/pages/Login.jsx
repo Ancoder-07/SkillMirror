@@ -6,6 +6,7 @@ function Login({ onLogin }) {
   const [form, setForm] = useState({ email: '', password: '' });
   const [error, setError] = useState('');
   const [isSignup, setIsSignup] = useState(false);
+  const [message, setMessage] = useState("");
 
   const handleChange = (e) => {
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
@@ -22,72 +23,73 @@ function Login({ onLogin }) {
       setError('Password must be at least 6 characters.');
       return;
     }
-     try {
-    let response;
+    try {
+      let response;
 
-    if (isSignup) {
-  // 1️⃣ signup
-  await axios.post("http://127.0.0.1:8000/api/auth/signup", {
-    name: form.name,
-    email: form.email,
-    password: form.password,
-  });
+      if (isSignup) {
+        await axios.post("http://127.0.0.1:8000/api/auth/signup", {
+          name: form.name,
+          email: form.email,
+          password: form.password,
+        });
 
-  // 2️⃣ immediately login to get token 🔥
-  const response = await axios.post("http://127.0.0.1:8000/api/auth/login", {
-    email: form.email,
-    password: form.password,
-  });
+        const response = await axios.post("http://127.0.0.1:8000/api/auth/login", {
+          email: form.email,
+          password: form.password,
+        });
 
-  // 3️⃣ save token
-  localStorage.setItem("token", response.data.access_token);
-  localStorage.setItem("user", JSON.stringify({
-  email: form.email,
-  name: form.name
-  }));
+        localStorage.setItem("token", response.data.access_token);
+        localStorage.setItem("user", JSON.stringify({
+          email: form.email,
+          name: form.name
+        }));
 
-  // 👉 directly move to profile setup
-  onLogin({
-    email: form.email,
-    name: form.name,
-    isNewUser: true   // ⭐ important
-  });
+        setMessage("✅ Account created successfully!");
+        setError("");
 
-  return;
-}else {
-      // LOGIN
-      response = await axios.post("http://127.0.0.1:8000/api/auth/login", {
+        setTimeout(() => {
+          onLogin({
+            email: form.email,
+            name: form.name,
+            isNewUser: true
+          });
+        }, 1500);
+
+        return;
+      } else {
+        response = await axios.post("http://127.0.0.1:8000/api/auth/login", {
+          email: form.email,
+          password: form.password,
+        });
+      }
+
+      localStorage.setItem("token", response.data.access_token);
+      localStorage.setItem("user", JSON.stringify({
         email: form.email,
-        password: form.password,
-      });
+        name: form.email.split("@")[0]
+      }));
+
+      setMessage("✅ Login successful!");
+      setError("");
+
+      setTimeout(() => {
+        onLogin({
+          email: form.email,
+          name: form.email.split("@")[0],
+          isNewUser: false
+        });
+      }, 1500);
+
+    } catch (error) {
+      console.error(error);
+      const msg = error.response?.data?.detail || "Something went wrong";
+      setError(msg);
+      setMessage("");
     }
-
-    // Save token
-    localStorage.setItem("token", response.data.access_token);
-
-    localStorage.setItem("user", JSON.stringify({
-      email: form.email,
-      name: form.email.split("@")[0]
-  }));  
-
-    // Pass user forward
-    onLogin({
-  email: form.email,
-  name: form.email.split("@")[0],
-  isNewUser: false   // ⭐ important
-});
-
-  } catch (error) {
-  console.error(error);
-
-  const msg = error.response?.data?.detail || "Something went wrong";
-  setError(msg);
-}
   };
 
   return (
     <div className="min-h-screen flex items-center justify-center px-4 py-16">
-      {/* Background glow */}
       <div
         className="absolute inset-0 pointer-events-none"
         style={{
@@ -96,7 +98,6 @@ function Login({ onLogin }) {
       />
 
       <div className="w-full relative" style={{ maxWidth: 400 }}>
-        {/* Logo mark */}
         <div className="text-center mb-8">
           <div
             className="inline-flex items-center justify-center rounded-xl text-lg mb-4"
@@ -164,19 +165,31 @@ function Login({ onLogin }) {
               </p>
             )}
 
+            {/* ✅ Success message shown here */}
+            {message && (
+              <p
+                className="text-xs font-mono px-3 py-2 rounded-lg"
+                style={{
+                  color: '#22c55e',
+                  background: 'rgba(34,197,94,0.08)',
+                  border: '0.5px solid #22c55e',
+                }}
+              >
+                {message}
+              </p>
+            )}
+
             <BtnPrimary type="submit" className="w-full mt-1">
               {isSignup ? 'Create account →' : 'Sign in →'}
             </BtnPrimary>
           </form>
 
-          {/* Divider */}
           <div className="flex items-center gap-3 my-5">
             <div className="flex-1 h-px" style={{ background: 'var(--border)' }} />
             <span className="text-xs font-mono" style={{ color: 'var(--dim)' }}>OR</span>
             <div className="flex-1 h-px" style={{ background: 'var(--border)' }} />
           </div>
 
-          {/* OAuth placeholder */}
           <button
             className="w-full py-3 rounded-lg text-sm flex items-center justify-center gap-2 transition-all duration-200"
             style={{
@@ -201,7 +214,6 @@ function Login({ onLogin }) {
           </button>
         </Card>
 
-        {/* Toggle */}
         <p className="text-center text-xs mt-5" style={{ color: 'var(--muted)' }}>
           {isSignup ? 'Already have an account? ' : "Don't have an account? "}
           <button

@@ -38,6 +38,8 @@ function ProfileSetup({ onSave, user }) {
     experience: '',
     goals: [],
   });
+  const [message, setMessage] = useState('');
+  const [error, setError] = useState('');
 
   const handleChange = (e) => {
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
@@ -53,34 +55,39 @@ function ProfileSetup({ onSave, user }) {
   };
 
   const handleSubmit = async () => {
-  try {
-    const token = localStorage.getItem("token");
+    try {
+      const token = localStorage.getItem('token');
 
-    await axios.post(
-      "http://127.0.0.1:8000/api/profile/setup",
-      {
-        email: user.email,
-        name: form.name,
-        role: form.role,
-        experience: form.experience,
-        goals: form.goals,
-      },
-      {
-        headers: {
-          Authorization: `Bearer ${token}`,
+      await axios.post(
+        'http://127.0.0.1:8000/api/profile/setup',
+        {
+          email: user.email,
+          name: form.name,
+          role: form.role,
+          experience: form.experience,
+          goals: form.goals,
         },
-      }
-    );
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
 
-    alert("Profile saved successfully");
+      setMessage('✅ Profile saved successfully!');
+      setError('');
 
-    onSave(form);
+      setTimeout(() => {
+        onSave(form);
+      }, 1500);
 
-  } catch (error) {
-    console.error(error);
-    alert("Error saving profile");
-  }
-};
+    } catch (error) {
+      console.error(error);
+      const msg = error.response?.data?.detail || 'Error saving profile';
+      setError(msg);
+      setMessage('');
+    }
+  };
 
   const isValid = form.name && form.role && form.experience;
 
@@ -169,6 +176,34 @@ function ProfileSetup({ onSave, user }) {
           Your profile is used only for calibration. We never share identifiable data with recruiters
           unless you explicitly generate a public scorecard link.
         </div>
+
+        {/* ✅ Success message */}
+        {message && (
+          <p
+            className="text-xs font-mono px-3 py-2 rounded-lg"
+            style={{
+              color: '#22c55e',
+              background: 'rgba(34,197,94,0.08)',
+              border: '0.5px solid #22c55e',
+            }}
+          >
+            {message}
+          </p>
+        )}
+
+        {/* ❌ Error message */}
+        {error && (
+          <p
+            className="text-xs font-mono px-3 py-2 rounded-lg"
+            style={{
+              color: 'var(--red)',
+              background: 'var(--red-dim)',
+              border: '0.5px solid var(--red)',
+            }}
+          >
+            {error}
+          </p>
+        )}
 
         <div className="flex justify-end">
           <BtnPrimary onClick={handleSubmit} disabled={!isValid}>

@@ -1,5 +1,4 @@
 import LiveChallenges from "./pages/LiveChallenges";
-import { useEffect } from "react";
 import React, { useState } from 'react';
 import Navbar from './components/layout/Navbar';
 import Landing from './pages/Landing';
@@ -10,7 +9,6 @@ import SkillSelection from './pages/SkillSelection';
 import Challenge from './pages/Challenge';
 import Scorecard from './pages/Scorecard';
 
-// Pages: 'landing' | 'login' | 'profile' | 'resume' | 'skills' | 'challenge' | 'scorecard'
 export const PAGES = {
   LANDING: 'landing',
   LOGIN: 'login',
@@ -22,7 +20,6 @@ export const PAGES = {
   LIVE_CHALLENGES: 'live_challenges',
 };
 
-// Nav steps config (for the top pill nav, shown after login)
 export const NAV_STEPS = [
   { key: PAGES.RESUME,    label: '1. Parse' },
   { key: PAGES.SKILLS,   label: '2. Skill map' },
@@ -30,13 +27,29 @@ export const NAV_STEPS = [
   { key: PAGES.SCORECARD, label: '4. Results' },
 ];
 
-
-
 function App() {
-  const [page, setPage] = useState(PAGES.LANDING);
-  const [user, setUser] = useState(null);
-  const [profile, setProfile] = useState(null);
-  const [resumeData, setResumeData] = useState(null);
+  // ✅ Restore user from localStorage on refresh
+  const [user, setUser] = useState(() => {
+    try {
+      const stored = localStorage.getItem("user");
+      const token  = localStorage.getItem("token");
+      if (stored && token) return JSON.parse(stored);
+    } catch (_) {}
+    return null;
+  });
+
+  // ✅ Restore page from localStorage on refresh
+  const [page, setPage] = useState(() => {
+    try {
+      const token = localStorage.getItem("token");
+      const stored = localStorage.getItem("user");
+      if (token && stored) return PAGES.RESUME; // logged-in users land on resume step
+    } catch (_) {}
+    return PAGES.LANDING;
+  });
+
+  const [profile, setProfile]           = useState(null);
+  const [resumeData, setResumeData]     = useState(null);
   const [selectedSkill, setSelectedSkill] = useState(null);
 
   const navigate = (target) => {
@@ -44,15 +57,27 @@ function App() {
     window.scrollTo(0, 0);
   };
 
-const handleLogin = (userData) => {
-  setUser(userData);
+  const handleLogin = (userData) => {
+    setUser(userData);
+    // ✅ Persist full user object including isNewUser flag
+    localStorage.setItem("user", JSON.stringify(userData));
+    if (userData.isNewUser) {
+      navigate(PAGES.PROFILE);
+    } else {
+      navigate(PAGES.RESUME);
+    }
+  };
 
-  if (userData.isNewUser) {
-    navigate(PAGES.PROFILE);   // ✅ go to profile after signup
-  } else {
-    navigate(PAGES.RESUME);    // ✅ go to next step after login
-  }
-};
+  // ✅ Logout clears everything
+  const handleLogout = () => {
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
+    setUser(null);
+    setProfile(null);
+    setResumeData(null);
+    setSelectedSkill(null);
+    navigate(PAGES.LANDING);
+  };
 
   const handleProfileSave = (profileData) => {
     setProfile(profileData);
@@ -105,6 +130,7 @@ const handleLogin = (userData) => {
         showAuthNav={showAuthNav}
         navigate={navigate}
         user={user}
+        onLogout={handleLogout}
         PAGES={PAGES}
         NAV_STEPS={NAV_STEPS}
       />
