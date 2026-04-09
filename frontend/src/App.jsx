@@ -1,4 +1,5 @@
-import { useEffect } from "react";
+// merged or not
+import LiveChallenges from "./pages/LiveChallenges";
 import React, { useState } from 'react';
 import Navbar from './components/layout/Navbar';
 import Landing from './pages/Landing';
@@ -9,7 +10,6 @@ import SkillSelection from './pages/SkillSelection';
 import Challenge from './pages/Challenge';
 import Scorecard from './pages/Scorecard';
 
-// Pages: 'landing' | 'login' | 'profile' | 'resume' | 'skills' | 'challenge' | 'scorecard'
 export const PAGES = {
   LANDING: 'landing',
   LOGIN: 'login',
@@ -18,9 +18,9 @@ export const PAGES = {
   SKILLS: 'skills',
   CHALLENGE: 'challenge',
   SCORECARD: 'scorecard',
+  LIVE_CHALLENGES: 'live_challenges',
 };
 
-// Nav steps config (for the top pill nav, shown after login)
 export const NAV_STEPS = [
   { key: PAGES.RESUME,    label: '1. Parse' },
   { key: PAGES.SKILLS,   label: '2. Skill map' },
@@ -28,47 +28,55 @@ export const NAV_STEPS = [
   { key: PAGES.SCORECARD, label: '4. Results' },
 ];
 
-
-
 function App() {
+  // ✅ Restore user from localStorage on refresh
+  const [user, setUser] = useState(() => {
+    try {
+      const stored = localStorage.getItem("user");
+      const token  = localStorage.getItem("token");
+      if (stored && token) return JSON.parse(stored);
+    } catch (_) {}
+    return null;
+  });
+
+  // ✅ Restore page from localStorage on refresh — always land on LANDING,
+  //    but keep user/token so "Test your skill set" skips login
   const [page, setPage] = useState(PAGES.LANDING);
-  const [user, setUser] = useState(null);
-  const [profile, setProfile] = useState(null);
-  const [resumeData, setResumeData] = useState(null);
+
+  const [profile, setProfile]           = useState(null);
+  const [resumeData, setResumeData]     = useState(null);
   const [selectedSkill, setSelectedSkill] = useState(null);
-
-  useEffect(() => {
-  const token = localStorage.getItem("token");
-  const userData = localStorage.getItem("user");
-
-  if (token && userData) {
-    setUser(JSON.parse(userData));
-
-    // 👉 stay logged in after refresh
-    setPage(PAGES.RESUME);
-  } else {
-    setPage(PAGES.LANDING);
-  }
-}, []);
 
   const navigate = (target) => {
     setPage(target);
     window.scrollTo(0, 0);
   };
 
-const handleLogin = (userData) => {
-  setUser(userData);
+  const handleLogin = (userData) => {
+    setUser(userData);
+    // ✅ Persist full user object including isNewUser flag
+    localStorage.setItem("user", JSON.stringify(userData));
+    if (userData.isNewUser) {
+      navigate(PAGES.PROFILE);
+    } else {
+      navigate(PAGES.LANDING);
+    }
+  };
 
-  if (userData.isNewUser) {
-    navigate(PAGES.PROFILE);   // ✅ go to profile after signup
-  } else {
-    navigate(PAGES.RESUME);    // ✅ go to next step after login
-  }
-};
+  // ✅ Logout clears everything
+  const handleLogout = () => {
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
+    setUser(null);
+    setProfile(null);
+    setResumeData(null);
+    setSelectedSkill(null);
+    navigate(PAGES.LANDING);
+  };
 
   const handleProfileSave = (profileData) => {
     setProfile(profileData);
-    navigate(PAGES.RESUME);
+    navigate(PAGES.LANDING);
   };
 
   const handleResumeParsed = (data) => {
@@ -90,7 +98,7 @@ const handleLogin = (userData) => {
   const renderPage = () => {
     switch (page) {
       case PAGES.LANDING:
-        return <Landing onStart={() => navigate(PAGES.LOGIN)} onDemo={() => navigate(PAGES.CHALLENGE)} />;
+        return <Landing onStart={() => navigate(user ? PAGES.RESUME : PAGES.LOGIN)} onDemo={() => navigate(PAGES.LIVE_CHALLENGES)} />;
       case PAGES.LOGIN:
         return <Login onLogin={handleLogin} />;
       case PAGES.PROFILE:
@@ -103,8 +111,10 @@ const handleLogin = (userData) => {
         return <Challenge skill={selectedSkill} onSubmit={handleChallengeSubmit} />;
       case PAGES.SCORECARD:
         return <Scorecard skill={selectedSkill} onRestart={() => navigate(PAGES.LANDING)} />;
+      case PAGES.LIVE_CHALLENGES:
+        return <LiveChallenges />;
       default:
-        return <Landing onStart={() => navigate(PAGES.LOGIN)} />;
+        return <Landing onStart={() => navigate(user ? PAGES.RESUME : PAGES.LOGIN)} />;
     }
   };
 
@@ -115,6 +125,7 @@ const handleLogin = (userData) => {
         showAuthNav={showAuthNav}
         navigate={navigate}
         user={user}
+        onLogout={handleLogout}
         PAGES={PAGES}
         NAV_STEPS={NAV_STEPS}
       />

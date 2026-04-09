@@ -1,6 +1,6 @@
 import React from 'react';
 
-function Navbar({ page, showAuthNav, navigate, user, PAGES, NAV_STEPS }) {
+function Navbar({ page, showAuthNav, navigate, user, onLogout, PAGES, NAV_STEPS }) {
   return (
     <nav
       className="sticky top-0 z-50 flex items-center justify-between px-8"
@@ -82,11 +82,7 @@ function Navbar({ page, showAuthNav, navigate, user, PAGES, NAV_STEPS }) {
 
     {/* 🔥 LOGOUT BUTTON */}
     <button
-      onClick={() => {
-        localStorage.removeItem("token");
-        localStorage.removeItem("user");
-        window.location.reload();
-      }}
+      onClick={onLogout}
       className="text-xs px-2 py-1 rounded"
       style={{
         border: '0.5px solid var(--border)',
