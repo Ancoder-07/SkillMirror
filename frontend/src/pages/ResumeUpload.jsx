@@ -1,47 +1,67 @@
 import React, { useState, useRef } from 'react';
 import { StepHeader, BtnPrimary } from '../components/ui';
-import { parseResume } from "../api/api";
+import { parseResume, parseText } from '../api/api'; // ✅ your fix: separate parseText import
 
+/* ─────────────────────────────────────────
+   Constants
+───────────────────────────────────────── */
 const TAG_LABELS = { high: 'High claim', med: 'Medium claim', low: 'Low claim' };
+
 const TAG_COLORS = {
-  high: { bg: 'var(--red-dim)',    border: 'var(--red)',    color: 'var(--red)'    },
-  med:  { bg: 'var(--amber-dim)',  border: 'var(--amber)',  color: 'var(--amber)'  },
-  low:  { bg: 'var(--green-dim)',  border: 'var(--green)',  color: 'var(--green)'  },
+  high: { bg: '#FCEBEB', border: '#F09595', color: '#791F1F' },
+  med:  { bg: '#FAEEDA', border: '#FAC775', color: '#633806' },
+  low:  { bg: '#EAF3DE', border: '#C0DD97', color: '#27500A' },
 };
 
 const TABS = ['PDF upload', 'Paste text'];
 
+/* ─────────────────────────────────────────
+   TagSelector
+───────────────────────────────────────── */
 function TagSelector({ value, onChange }) {
   return (
-    <div className="flex gap-1">
-      {['high', 'med', 'low'].map((t) => (
-        <button
-          key={t}
-          onClick={(e) => { e.stopPropagation(); onChange(t); }}
-          className="px-2 py-0.5 rounded text-xs font-mono cursor-pointer transition-all duration-150"
-          style={
-            value === t
-              ? {
-                  background: TAG_COLORS[t].bg,
-                  border: `0.5px solid ${TAG_COLORS[t].border}`,
-                  color: TAG_COLORS[t].color,
-                  fontFamily: 'var(--font)',
-                }
-              : {
-                  background: 'transparent',
-                  border: '0.5px solid var(--border)',
-                  color: 'var(--dim)',
-                  fontFamily: 'var(--font)',
-                }
-          }
-        >
-          {TAG_LABELS[t]}
-        </button>
-      ))}
+    <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+      {['high', 'med', 'low'].map((t) => {
+        const active = value === t;
+        return (
+          <button
+            key={t}
+            onClick={(e) => { e.stopPropagation(); onChange(t); }}
+            style={{
+              padding: '3px 10px',
+              borderRadius: 20,
+              border: `0.5px solid ${active ? TAG_COLORS[t].border : 'var(--color-border-tertiary)'}`,
+              background: active ? TAG_COLORS[t].bg : 'transparent',
+              color: active ? TAG_COLORS[t].color : 'var(--color-text-secondary)',
+              fontSize: 11,
+              fontFamily: 'var(--font-mono, monospace)',
+              cursor: 'pointer',
+              transition: 'all .15s',
+            }}
+          >
+            {TAG_LABELS[t]}
+          </button>
+        );
+      })}
     </div>
   );
 }
 
+/* ─────────────────────────────────────────
+   Shared skill mapper (your logic, DRY'd)
+───────────────────────────────────────── */
+const mapSkills = (data, sourceLabel = 'resume') =>
+  data.all_skills.map((skill) => ({
+    name: skill,
+    evidence: data.boldest_claims?.includes(skill)
+      ? `Strong evidence in ${sourceLabel}`
+      : `Mentioned in ${sourceLabel}`,
+    tag: data.boldest_claims?.includes(skill) ? 'high' : 'med',
+  }));
+
+/* ─────────────────────────────────────────
+   ResumeUpload
+───────────────────────────────────────── */
 function ResumeUpload({ onNext }) {
   const [activeTab, setActiveTab] = useState(0);
   const [file, setFile]           = useState(null);
@@ -53,7 +73,15 @@ function ResumeUpload({ onNext }) {
   const [dragging, setDragging]   = useState(false);
   const fileRef = useRef();
 
-  // ── Call backend to parse PDF ──────────────────────────
+  /* ── Tab switch ── */
+  const handleTabSwitch = (i) => {
+    setActiveTab(i);
+    setParsed(false);
+    setClaims([]);
+    setError(null);
+  };
+
+  /* ── PDF parse (your logic) ── */
   const handleFile = async (f) => {
     if (!f) return;
     if (!f.name.endsWith('.pdf')) {
@@ -68,18 +96,7 @@ function ResumeUpload({ onNext }) {
 
     try {
       const data = await parseResume(f);
-
-      // Map backend all_skills array into claim objects
-      // boldest_claims from backend → high, rest → med
-      const mapped = data.all_skills.map((skill) => ({
-        name: skill,
-        evidence: data.boldest_claims?.includes(skill)
-          ? 'Strong evidence in resume'
-          : 'Mentioned in resume',
-        tag: data.boldest_claims?.includes(skill) ? 'high' : 'med',
-      }));
-
-      setClaims(mapped);
+      setClaims(mapSkills(data, 'resume'));
       setParsed(true);
     } catch (err) {
       setError(err.message);
@@ -88,29 +105,17 @@ function ResumeUpload({ onNext }) {
     }
   };
 
-  // ── Parse pasted text ──────────────────────────────────
+  /* ── Text parse (your fix: uses parseText, not blob hack) ── */
   const handleParseText = async () => {
-    if (text.length < 50) return;
+    if (text.length < 10) return;
     setError(null);
     setLoading(true);
     setParsed(false);
     setClaims([]);
 
     try {
-      // Convert text to a blob so we can send it as a file
-      const blob = new Blob([text], { type: 'application/pdf' });
-      const textFile = new File([blob], 'resume.txt', { type: 'text/plain' });
-      const data = await parseResume(textFile);
-
-      const mapped = data.all_skills.map((skill) => ({
-        name: skill,
-        evidence: data.boldest_claims?.includes(skill)
-          ? 'Strong evidence in resume'
-          : 'Mentioned in resume',
-        tag: data.boldest_claims?.includes(skill) ? 'high' : 'med',
-      }));
-
-      setClaims(mapped);
+      const data = await parseText(text);           // ✅ correct API call
+      setClaims(mapSkills(data, 'text'));
       setParsed(true);
     } catch (err) {
       setError(err.message);
@@ -119,12 +124,9 @@ function ResumeUpload({ onNext }) {
     }
   };
 
-  // ── User manually changes a tag ────────────────────────
-  const handleTagChange = (index, newTag) => {
-    setClaims((prev) =>
-      prev.map((c, i) => (i === index ? { ...c, tag: newTag } : c))
-    );
-  };
+  /* ── Tag edit ── */
+  const handleTagChange = (index, newTag) =>
+    setClaims((prev) => prev.map((c, i) => (i === index ? { ...c, tag: newTag } : c)));
 
   const handleDrop = (e) => {
     e.preventDefault();
@@ -133,52 +135,112 @@ function ResumeUpload({ onNext }) {
     if (f) handleFile(f);
   };
 
-  const handleNext = () => {
-    onNext({ claims, file: file?.name });
-  };
+  const handleNext = () => onNext({ claims, file: file?.name });
 
   const canProceed = parsed && claims.length > 0;
 
+  /* ─── Styles ─── */
+  const S = {
+    wrap: { maxWidth: 860, margin: '0 auto', padding: '3rem 2rem' },
+    tab: (active) => ({
+      padding: '5px 16px',
+      borderRadius: 20,
+      border: `0.5px solid ${active ? '#AFA9EC' : 'var(--color-border-tertiary)'}`,
+      background: active ? '#EEEDFE' : 'transparent',
+      color: active ? '#3C3489' : 'var(--color-text-secondary)',
+      fontSize: 13,
+      cursor: 'pointer',
+      transition: 'all .15s',
+    }),
+    dropZone: {
+      border: `1px dashed ${dragging ? '#7F77DD' : 'var(--color-border-secondary)'}`,
+      borderRadius: 16,
+      padding: '3rem 2rem',
+      textAlign: 'center',
+      cursor: 'pointer',
+      background: dragging ? '#EEEDFE22' : 'transparent',
+      transition: 'all .2s',
+      marginBottom: 20,
+    },
+    textarea: {
+      width: '100%',
+      padding: '12px 14px',
+      border: '0.5px solid var(--color-border-tertiary)',
+      borderRadius: 8,
+      fontSize: 14,
+      background: 'var(--color-background-primary)',
+      color: 'var(--color-text-primary)',
+      resize: 'none',
+      outline: 'none',
+      fontFamily: 'var(--font-sans, sans-serif)',
+      lineHeight: 1.6,
+    },
+    parseBtn: (disabled) => ({
+      marginTop: 10,
+      padding: '7px 18px',
+      borderRadius: 8,
+      border: '0.5px solid var(--color-border-secondary)',
+      background: disabled ? 'var(--color-background-secondary)' : 'var(--color-background-primary)',
+      color: disabled ? 'var(--color-text-secondary)' : 'var(--color-text-primary)',
+      fontSize: 13,
+      cursor: disabled ? 'not-allowed' : 'pointer',
+      opacity: disabled ? 0.5 : 1,
+    }),
+    claimsCard: {
+      border: '0.5px solid var(--color-border-tertiary)',
+      borderRadius: 12,
+      overflow: 'hidden',
+      marginBottom: 20,
+    },
+    claimsHeader: {
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      padding: '10px 18px',
+      borderBottom: '0.5px solid var(--color-border-tertiary)',
+      background: 'var(--color-background-secondary)',
+    },
+    mono: { fontSize: 11, fontFamily: 'var(--font-mono, monospace)', letterSpacing: '.1em', color: 'var(--color-text-secondary)' },
+    claimsCount: { fontSize: 12, fontFamily: 'var(--font-mono, monospace)', color: '#534AB7' },
+    claimsHint: {
+      padding: '7px 18px',
+      fontSize: 12,
+      fontFamily: 'var(--font-mono, monospace)',
+      color: 'var(--color-text-secondary)',
+      borderBottom: '0.5px solid var(--color-border-tertiary)',
+      background: 'var(--color-background-secondary)',
+    },
+    claimRow: (last) => ({
+      display: 'flex',
+      alignItems: 'center',
+      gap: 12,
+      padding: '12px 18px',
+      flexWrap: 'wrap',
+      borderBottom: last ? 'none' : '0.5px solid var(--color-border-tertiary)',
+    }),
+  };
+
   return (
-    <div style={{ maxWidth: 860, margin: '0 auto', padding: '3rem 2rem' }}>
+    <div style={S.wrap}>
       <StepHeader
         step="STEP 01 — PARSE"
         title="Upload your resume"
         subtitle="System reads your resume and extracts every skill claim. You can adjust the confidence level for each skill before proceeding."
       />
 
-      {/* Tabs */}
-      <div className="flex gap-2 mb-4">
+      {/* ── Tabs ── */}
+      <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
         {TABS.map((tab, i) => (
-          <button
-            key={tab}
-            onClick={() => {
-              setActiveTab(i);
-              setParsed(false);
-              setClaims([]);
-              setError(null);
-            }}
-            className="px-4 py-1.5 rounded-lg text-xs cursor-pointer transition-all duration-200"
-            style={
-              activeTab === i
-                ? { background: 'var(--purple-dim)', border: '0.5px solid var(--purple)', color: 'var(--text)', fontFamily: 'var(--font)' }
-                : { border: '0.5px solid var(--border)', background: 'transparent', color: 'var(--muted)', fontFamily: 'var(--font)' }
-            }
-          >
+          <button key={tab} onClick={() => handleTabSwitch(i)} style={S.tab(activeTab === i)}>
             {tab}
           </button>
         ))}
       </div>
 
-      {/* ── PDF Upload Tab ── */}
+      {/* ── PDF Upload tab ── */}
       {activeTab === 0 && (
         <div
-          className="rounded-2xl text-center cursor-pointer transition-all duration-200 mb-6"
-          style={{
-            border: `1px dashed ${dragging ? 'var(--purple)' : 'var(--border2)'}`,
-            padding: '3rem 2rem',
-            background: dragging ? 'var(--purple-dim)' : 'transparent',
-          }}
+          style={S.dropZone}
           onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
           onDragLeave={() => setDragging(false)}
           onDrop={handleDrop}
@@ -188,144 +250,109 @@ function ResumeUpload({ onNext }) {
             ref={fileRef}
             type="file"
             accept=".pdf"
-            className="hidden"
+            style={{ display: 'none' }}
             onChange={(e) => handleFile(e.target.files[0])}
           />
-          <div className="text-3xl mb-3">⬆</div>
+
+          {/* Upload icon */}
+          <div style={{
+            width: 36, height: 36, margin: '0 auto 12px',
+            border: '1.5px solid var(--color-border-secondary)',
+            borderRadius: 8,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>
+            <div style={{
+              width: 0, height: 0,
+              borderLeft: '7px solid transparent',
+              borderRight: '7px solid transparent',
+              borderBottom: `10px solid ${dragging ? '#7F77DD' : 'var(--color-text-secondary)'}`,
+            }} />
+          </div>
 
           {loading && (
-            <p className="text-xs font-mono" style={{ color: 'var(--purple)' }}>
+            <p style={{ fontSize: 13, fontFamily: 'var(--font-mono, monospace)', color: '#534AB7' }}>
               Parsing resume...
             </p>
           )}
           {error && (
-            <p className="text-xs font-mono" style={{ color: 'var(--red)' }}>
+            <p style={{ fontSize: 12, fontFamily: 'var(--font-mono, monospace)', color: '#A32D2D' }}>
               ✗ {error}
             </p>
           )}
           {file && !loading && !error && (
             <>
-              <h3 className="text-sm font-bold mb-1" style={{ color: 'var(--green)' }}>
+              <p style={{ fontSize: 14, fontWeight: 500, color: '#3B6D11', marginBottom: 4 }}>
                 ✓ {file.name}
-              </h3>
-              <p className="text-xs" style={{ color: 'var(--muted)' }}>
+              </p>
+              <p style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>
                 {(file.size / 1024).toFixed(1)} KB · Click to replace
               </p>
             </>
           )}
-          {!file && !loading && (
+          {!file && !loading && !error && (
             <>
-              <h3 className="text-sm font-bold mb-1">Drop your resume here</h3>
-              <p className="text-xs" style={{ color: 'var(--muted)' }}>PDF only — max 5MB</p>
+              <p style={{ fontSize: 14, fontWeight: 500, color: 'var(--color-text-primary)', marginBottom: 4 }}>
+                Drop your resume here
+              </p>
+              <p style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>PDF only — max 5MB</p>
             </>
           )}
         </div>
       )}
 
-      {/* ── Paste Text Tab ── */}
+      {/* ── Paste text tab ── */}
       {activeTab === 1 && (
-        <div className="mb-6">
+        <div style={{ marginBottom: 20 }}>
           <textarea
+            rows={8}
             placeholder="Paste your resume text here..."
             value={text}
             onChange={(e) => setText(e.target.value)}
-            rows={8}
-            className="w-full px-4 py-3 rounded-lg text-sm outline-none resize-none"
-            style={{
-              background: 'var(--surface)',
-              border: '0.5px solid var(--border2)',
-              color: 'var(--text)',
-              fontFamily: 'var(--font)',
-            }}
-            onFocus={(e) => (e.target.style.borderColor = 'var(--purple)')}
-            onBlur={(e) => (e.target.style.borderColor = 'var(--border2)')}
+            style={S.textarea}
+            onFocus={(e) => (e.target.style.borderColor = '#7F77DD')}
+            onBlur={(e) => (e.target.style.borderColor = 'var(--color-border-tertiary)')}
           />
-          {text.length > 50 && (
-            <button
-              onClick={handleParseText}
-              disabled={loading}
-              className="mt-3 px-5 py-2 rounded-lg text-xs font-bold cursor-pointer"
-              style={{
-                background: loading ? 'var(--surface)' : 'var(--purple)',
-                color: loading ? 'var(--dim)' : '#fff',
-                border: 'none',
-                fontFamily: 'var(--font)',
-              }}
-            >
+          {text.length > 10 && (
+            <button onClick={handleParseText} disabled={loading} style={S.parseBtn(loading)}>
               {loading ? 'Parsing...' : 'Parse text →'}
             </button>
           )}
           {error && (
-            <p className="text-xs font-mono mt-2" style={{ color: 'var(--red)' }}>
+            <p style={{ fontSize: 12, fontFamily: 'var(--font-mono, monospace)', color: '#A32D2D', marginTop: 8 }}>
               ✗ {error}
             </p>
           )}
         </div>
       )}
 
-      {/* ── Extracted Claims Table ── */}
+      {/* ── Extracted claims table ── */}
       {parsed && claims.length > 0 && (
-        <div
-          className="rounded-xl overflow-hidden animate-fade-in"
-          style={{ background: 'var(--card)', border: '0.5px solid var(--border)' }}
-        >
-          {/* Header */}
-          <div
-            className="flex items-center justify-between px-5 py-3"
-            style={{ borderBottom: '0.5px solid var(--border)' }}
-          >
-            <span className="text-xs font-mono" style={{ color: 'var(--dim)', letterSpacing: '0.12em' }}>
-              EXTRACTED CLAIMS
-            </span>
-            <span className="text-xs font-mono" style={{ color: 'var(--purple)' }}>
-              {claims.length} skills detected
-            </span>
+        <div style={S.claimsCard}>
+          <div style={S.claimsHeader}>
+            <span style={S.mono}>EXTRACTED CLAIMS</span>
+            <span style={S.claimsCount}>{claims.length} skills detected</span>
           </div>
-
-          {/* instruction hint */}
-          <div
-            className="px-5 py-2 text-xs font-mono"
-            style={{ color: 'var(--dim)', borderBottom: '0.5px solid var(--border)', background: 'var(--surface)' }}
-          >
+          <div style={S.claimsHint}>
             Adjust confidence level for each skill before proceeding ↓
           </div>
-
           {claims.map((claim, i) => (
-            <div
-              key={claim.name}
-              className="flex items-center px-5 py-3.5 gap-4 flex-wrap"
-              style={{
-                borderBottom: i < claims.length - 1 ? '0.5px solid var(--border)' : 'none',
-              }}
-            >
-              {/* Skill name */}
-              <div className="flex-1 text-sm font-bold" style={{ minWidth: 120 }}>
+            <div key={claim.name} style={S.claimRow(i === claims.length - 1)}>
+              <div style={{ flex: 1, fontSize: 14, fontWeight: 500, color: 'var(--color-text-primary)', minWidth: 100 }}>
                 {claim.name}
               </div>
-
-              {/* Evidence */}
-              <div className="text-xs" style={{ color: 'var(--muted)', flex: 2, minWidth: 140 }}>
+              <div style={{ flex: 2, fontSize: 12, color: 'var(--color-text-secondary)', minWidth: 120 }}>
                 {claim.evidence}
               </div>
-
-              {/* Tag selector — user can change this */}
-              <TagSelector
-                value={claim.tag}
-                onChange={(newTag) => handleTagChange(i, newTag)}
-              />
+              <TagSelector value={claim.tag} onChange={(tag) => handleTagChange(i, tag)} />
             </div>
           ))}
         </div>
       )}
 
-      {/* Empty state */}
-      {!parsed && !loading && (
-        <div className="text-center text-xs font-mono py-4" style={{ color: 'var(--dim)' }}>
-          Upload a resume to see extracted skill claims
-        </div>
-      )}
+      {/* ── Empty state ── */}
+      
 
-      <div className="flex justify-end mt-5">
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 4 }}>
         <BtnPrimary onClick={handleNext} disabled={!canProceed}>
           Build skill map →
         </BtnPrimary>

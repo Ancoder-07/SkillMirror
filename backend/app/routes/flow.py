@@ -5,11 +5,11 @@ from pydantic import BaseModel
 
 from app.services.ai_service import generate_questions
 from app.core.database import evaluations_collection
-from app.services.evaluation import evaluate_code  # 🔥 ADD THIS
+from app.services.evaluation import evaluate_code
 
 router = APIRouter()
 
-# 🔥 Store all active test sessions (in-memory)
+# 🔥 In-memory sessions
 test_sessions: Dict[str, Dict[str, Any]] = {}
 
 # =========================
@@ -43,7 +43,12 @@ def start_test(data: StartTestRequest):
     if "error" in result:
         return result
 
-    questions = result["questions"]
+    # ✅ FIX: keep all generated questions (no filtering)
+    questions = result.get("questions", [])[:4]
+
+    if not questions:
+        return {"error": "No questions generated"}
+
     test_id = str(uuid4())
 
     test_sessions[test_id] = {
@@ -54,6 +59,7 @@ def start_test(data: StartTestRequest):
         "level": level
     }
 
+    # Save initial state
     try:
         evaluations_collection.insert_one({
             "test_id": test_id,
@@ -88,6 +94,7 @@ def next_question(data: NextQuestionRequest):
 
     session["current_index"] += 1
 
+    # Update DB
     try:
         evaluations_collection.update_one(
             {"test_id": test_id},
@@ -97,7 +104,7 @@ def next_question(data: NextQuestionRequest):
         print("MongoDB Update Error:", e)
 
     # =========================
-    # 🔥 TEST COMPLETED → RUN EVALUATION
+    # 🔥 TEST COMPLETED → EVALUATION
     # =========================
     if session["current_index"] >= len(session["questions"]):
 
@@ -109,19 +116,33 @@ def next_question(data: NextQuestionRequest):
                 if i < len(session["answers"]):
                     user_answer = session["answers"][i]["answer"]
 
-                result = evaluate_code(
-                    skill=session["skill"],
-                    level=session["level"],
-                    question=q["question"],
-                    user_code=user_answer
-                )
+                # ✅ TYPE-BASED EVALUATION
+                if q.get("type") == "mcq":
+                    result = {
+                        "type": "mcq",
+                        "score": 1 if str(user_answer).strip() == str(q.get("answer")).strip() else 0
+                    }
+
+                elif q.get("type") == "numerical":
+                    result = {
+                        "type": "numerical",
+                        "score": 1 if str(user_answer).strip() == str(q.get("answer")).strip() else 0
+                    }
+
+                else:  # coding
+                    result = evaluate_code(
+                        skill=session["skill"],
+                        level=session["level"],
+                        question=q["question"],
+                        user_code=user_answer
+                    )
 
                 evaluations.append(result)
 
-            # 🔥 average score
+            # ✅ average score
             avg_score = sum(e.get("score", 0) for e in evaluations) // len(evaluations)
 
-            # 🔥 save to DB
+            # Save results
             evaluations_collection.update_one(
                 {"test_id": test_id},
                 {
@@ -183,7 +204,7 @@ def submit_answer(data: SubmitAnswerRequest):
 
 
 # =========================
-# ✅ GET TEST STATUS (DEBUG)
+# ✅ TEST STATUS (DEBUG)
 # =========================
 @router.get("/test-status")
 def get_test_status(test_id: str):

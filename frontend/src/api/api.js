@@ -95,6 +95,25 @@ export const evaluateSession = async ({
 
   return res.json();
 };
+// ===============================
+// ✅ PARSE TEXT (NEW - REQUIRED)
+// ===============================
+export const parseText = async (text) => {
+  const res = await fetch(`${BASE_URL}/parse-text`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ text }),
+  });
+
+  if (!res.ok) {
+    const error = await res.json();
+    throw new Error(error.detail || "Failed to parse text");
+  }
+
+  return res.json();
+};
 
 // ===============================
 // ⚠️ OPTIONAL (USE ONLY IF BACKEND EXISTS)
