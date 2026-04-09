@@ -1,3 +1,4 @@
+import LiveChallenges from "./pages/LiveChallenges";
 import { useEffect } from "react";
 import React, { useState } from 'react';
 import Navbar from './components/layout/Navbar';
@@ -18,6 +19,7 @@ export const PAGES = {
   SKILLS: 'skills',
   CHALLENGE: 'challenge',
   SCORECARD: 'scorecard',
+  LIVE_CHALLENGES: 'live_challenges',
 };
 
 // Nav steps config (for the top pill nav, shown after login)
@@ -36,20 +38,6 @@ function App() {
   const [profile, setProfile] = useState(null);
   const [resumeData, setResumeData] = useState(null);
   const [selectedSkill, setSelectedSkill] = useState(null);
-
-  useEffect(() => {
-  const token = localStorage.getItem("token");
-  const userData = localStorage.getItem("user");
-
-  if (token && userData) {
-    setUser(JSON.parse(userData));
-
-    // 👉 stay logged in after refresh
-    setPage(PAGES.RESUME);
-  } else {
-    setPage(PAGES.LANDING);
-  }
-}, []);
 
   const navigate = (target) => {
     setPage(target);
@@ -90,7 +78,7 @@ const handleLogin = (userData) => {
   const renderPage = () => {
     switch (page) {
       case PAGES.LANDING:
-        return <Landing onStart={() => navigate(PAGES.LOGIN)} onDemo={() => navigate(PAGES.CHALLENGE)} />;
+        return <Landing onStart={() => navigate(PAGES.LOGIN)} onDemo={() => navigate(PAGES.LIVE_CHALLENGES)} />;
       case PAGES.LOGIN:
         return <Login onLogin={handleLogin} />;
       case PAGES.PROFILE:
@@ -103,6 +91,8 @@ const handleLogin = (userData) => {
         return <Challenge skill={selectedSkill} onSubmit={handleChallengeSubmit} />;
       case PAGES.SCORECARD:
         return <Scorecard skill={selectedSkill} onRestart={() => navigate(PAGES.LANDING)} />;
+      case PAGES.LIVE_CHALLENGES:
+        return <LiveChallenges />;
       default:
         return <Landing onStart={() => navigate(PAGES.LOGIN)} />;
     }
