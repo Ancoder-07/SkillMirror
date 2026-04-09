@@ -18,7 +18,6 @@ const getSkillName = (skill) =>
   typeof skill === "string" ? skill : skill?.label || skill?.name || "unknown";
 
 const getBoilerplate = (q, skill) => {
-  // Only show boilerplate for coding questions
   if (q?.type !== "coding") return "";
   const lang = getLanguage(skill);
   if (lang === "python")
@@ -37,7 +36,7 @@ const formatTime = (seconds) => {
 };
 
 /* ─────────────────────────────────────────
-   Styles (inline — no CSS file needed)
+   Styles
 ───────────────────────────────────────── */
 const S = {
   wrap: {
@@ -88,6 +87,24 @@ const S = {
     fontSize: 13,
     color: "var(--color-text-secondary, #aaa)",
   },
+  progressWrap: {
+    display: "flex",
+    gap: 8,
+    marginBottom: 20,
+    alignItems: "center",
+  },
+  progressStep: (active, done) => ({
+    flex: 1,
+    height: 4,
+    borderRadius: 2,
+    background: done ? "#7F77DD" : active ? "#AFA9EC" : "var(--color-border-tertiary, #2a2a4a)",
+    transition: "background 0.3s",
+  }),
+  progressLabel: {
+    fontSize: 12,
+    color: "var(--color-text-secondary, #888)",
+    marginBottom: 8,
+  },
   editorWrap: {
     border: "0.5px solid var(--color-border-tertiary, #2a2a4a)",
     borderRadius: 16,
@@ -137,6 +154,7 @@ const S = {
     fontFamily: "monospace",
     outline: "none",
     marginBottom: 14,
+    boxSizing: "border-box",
   },
   monitorBar: {
     background: "var(--color-background-secondary, #0f0f1a)",
@@ -190,29 +208,32 @@ const DIFFICULTY_COLORS = {
    Component
 ───────────────────────────────────────── */
 function Challenge({ skill, onSubmit }) {
-  const [question, setQuestion]   = useState(null);
-  const [answer, setAnswer]       = useState("");
-  const [loading, setLoading]     = useState(false);
-  const [testId, setTestId]       = useState(null);
-  const [timeLeft, setTimeLeft]   = useState(20 * 60);
+  const [question, setQuestion] = useState(null);
+  const [answer, setAnswer]     = useState("");
+  const [loading, setLoading]   = useState(false);
+  const [testId, setTestId]     = useState(null);
+  const [timeLeft, setTimeLeft] = useState(20 * 60);
+
+  // Track question index for progress bar (1-4)
+  const [questionIndex, setQuestionIndex] = useState(1);
 
   // Live monitoring display
-  const [displayKeystrokes, setDisplayKeystrokes]   = useState(0);
-  const [displayRewrites, setDisplayRewrites]       = useState(0);
+  const [displayKeystrokes, setDisplayKeystrokes] = useState(0);
+  const [displayRewrites, setDisplayRewrites]     = useState(0);
   const [displayTabSwitches, setDisplayTabSwitches] = useState(0);
 
-  // Refs (behavioural tracking — your logic)
-  const sessionAnswers      = useRef([]);
-  const questionStartTime   = useRef(Date.now());
-  const tabSwitchCount      = useRef(0);
-  const rewriteCount        = useRef(0);
-  const keystrokeCount      = useRef(0);
-  const lastAnswerLength    = useRef(0);
+  // Refs
+  const sessionAnswers    = useRef([]);     // accumulates all 4 Q+A objects
+  const questionStartTime = useRef(Date.now());
+  const tabSwitchCount    = useRef(0);
+  const rewriteCount      = useRef(0);
+  const keystrokeCount    = useRef(0);
+  const lastAnswerLength  = useRef(0);
 
-  /* ── Load first question (your logic) ── */
+  /* ── Load first question ── */
   useEffect(() => {
-    const storedTestId       = localStorage.getItem("test_id");
-    const storedQuestionRaw  = localStorage.getItem("question");
+    const storedTestId      = localStorage.getItem("test_id");
+    const storedQuestionRaw = localStorage.getItem("question");
     if (!storedTestId || !storedQuestionRaw) return;
 
     try {
@@ -226,7 +247,7 @@ function Challenge({ skill, onSubmit }) {
     }
   }, []);
 
-  /* ── Timer (your logic) ── */
+  /* ── Timer ── */
   useEffect(() => {
     const interval = setInterval(() => {
       setTimeLeft((prev) => (prev > 0 ? prev - 1 : 0));
@@ -234,7 +255,7 @@ function Challenge({ skill, onSubmit }) {
     return () => clearInterval(interval);
   }, [question]);
 
-  /* ── Tab-switch tracking (your friend's feature) ── */
+  /* ── Tab-switch tracking ── */
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (document.hidden) {
@@ -246,11 +267,11 @@ function Challenge({ skill, onSubmit }) {
     return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
   }, []);
 
-  /* ── Editor change: keystrokes + rewrite detection ── */
+  /* ── Editor change ── */
   const handleEditorChange = (value) => {
-    const newVal   = value || "";
-    const currLen  = newVal.length;
-    const prevLen  = lastAnswerLength.current;
+    const newVal  = value || "";
+    const currLen = newVal.length;
+    const prevLen = lastAnswerLength.current;
 
     keystrokeCount.current += 1;
     setDisplayKeystrokes(keystrokeCount.current);
@@ -277,7 +298,7 @@ function Challenge({ skill, onSubmit }) {
     setTimeLeft(20 * 60);
   };
 
-  /* ── Next button (your logic, all three question types) ── */
+  /* ── Next / Submit ── */
   const handleNext = async () => {
     if (!answer || (typeof answer === "string" && !answer.trim())) {
       alert("Answer required!");
@@ -288,14 +309,14 @@ function Challenge({ skill, onSubmit }) {
     try {
       const timeTaken = Math.floor((Date.now() - questionStartTime.current) / 1000);
 
-      // Build payload that works for all types (your structure)
+      // ── KEY FIX: store full question object, not just text ──
       sessionAnswers.current.push({
-        question:            question.question,
-        answer:              answer,          // unified key (your code)
-        type:                question.type,
-        time_taken_seconds:  timeTaken,
-        rewrite_count:       rewriteCount.current,
-        tab_switches:        tabSwitchCount.current,
+        question:           question,           // full object {id, type, question, options, answer, difficulty}
+        answer:             answer,
+        type:               question.type,
+        time_taken_seconds: timeTaken,
+        rewrite_count:      rewriteCount.current,
+        tab_switches:       tabSwitchCount.current,
       });
 
       resetTrackers();
@@ -304,10 +325,12 @@ function Challenge({ skill, onSubmit }) {
       const res = await nextQuestion(testId);
 
       if (res.message === "Test completed") {
+        // ── KEY FIX: send all 4 Q+As to /evaluate/session ──
         const evaluation = await evaluateSession({
           skill:                 getSkillName(skill),
           level:                 skill?.level || "medium",
           questions_and_answers: sessionAnswers.current,
+          test_id:               testId,
         });
 
         localStorage.setItem("result", JSON.stringify(evaluation));
@@ -320,7 +343,8 @@ function Challenge({ skill, onSubmit }) {
       // Advance to next question
       const nextQ = res.question;
       setQuestion(nextQ);
-      setAnswer(getBoilerplate(nextQ, skill)); // empty string for mcq/numerical
+      setQuestionIndex((prev) => prev + 1);
+      setAnswer(getBoilerplate(nextQ, skill));
       localStorage.setItem("question", JSON.stringify(nextQ));
 
     } catch (err) {
@@ -341,9 +365,23 @@ function Challenge({ skill, onSubmit }) {
 
   const diffKey   = (question.difficulty || "medium").toLowerCase();
   const diffColor = DIFFICULTY_COLORS[diffKey] || DIFFICULTY_COLORS.medium;
+  const totalQ    = 4;
 
   return (
     <div style={S.wrap}>
+
+      {/* ── Progress bar ── */}
+      <div style={S.progressLabel}>
+        Question {questionIndex} of {totalQ}
+      </div>
+      <div style={S.progressWrap}>
+        {Array.from({ length: totalQ }).map((_, i) => (
+          <div
+            key={i}
+            style={S.progressStep(i + 1 === questionIndex, i + 1 < questionIndex)}
+          />
+        ))}
+      </div>
 
       {/* ── Question card ── */}
       <div style={S.qCard}>
@@ -352,6 +390,9 @@ function Challenge({ skill, onSubmit }) {
             <span style={S.badge(diffColor)}>{question.difficulty || "Medium"}</span>
             <span style={S.badge({ bg: "#EEEDFE", text: "#3C3489", border: "#AFA9EC" })}>
               {getSkillName(skill)}
+            </span>
+            <span style={S.badge({ bg: "var(--color-background-primary,#1a1a2e)", text: "var(--color-text-secondary,#888)", border: "var(--color-border-tertiary,#2a2a4a)" })}>
+              {question.type}
             </span>
           </div>
           <div>
@@ -362,12 +403,10 @@ function Challenge({ skill, onSubmit }) {
 
         <h2 style={S.qTitle}>{question.title || question.question}</h2>
 
-        {/* Show body only if there's a separate title */}
         {question.title && (
           <p style={S.qBody}>{question.question}</p>
         )}
 
-        {/* Numbered steps (your friend's pattern) */}
         {Array.isArray(question.steps) && (
           <ol style={{ paddingLeft: 20, color: "var(--color-text-secondary, #ccc)", lineHeight: 1.8, fontSize: 14 }}>
             {question.steps.map((step, i) => <li key={i}>{step}</li>)}
@@ -379,7 +418,7 @@ function Challenge({ skill, onSubmit }) {
         )}
       </div>
 
-      {/* ── Answer area — switches by type (your logic) ── */}
+      {/* ── Answer area ── */}
 
       {question.type === "coding" && (
         <div style={S.editorWrap}>
@@ -442,7 +481,7 @@ function Challenge({ skill, onSubmit }) {
         />
       )}
 
-      {/* ── Monitoring bar (your friend's feature) ── */}
+      {/* ── Monitoring bar ── */}
       <div style={S.monitorBar}>
         <div style={S.pulseRow}>
           <div style={S.pulseDot} />
@@ -462,9 +501,14 @@ function Challenge({ skill, onSubmit }) {
         </div>
       </div>
 
-      {/* ── Next button ── */}
+      {/* ── Next / Submit button ── */}
       <button onClick={handleNext} disabled={loading} style={S.nextBtn(loading)}>
-        {loading ? "Evaluating..." : "Next question →"}
+        {loading
+          ? "Evaluating..."
+          : questionIndex < totalQ
+            ? "Next question →"
+            : "Submit & See Results →"
+        }
       </button>
 
       <style>{`

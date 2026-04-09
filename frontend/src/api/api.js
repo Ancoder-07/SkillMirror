@@ -1,7 +1,7 @@
 const BASE_URL = "http://127.0.0.1:8000/api";
 
 // ===============================
-// ✅ PARSE RESUME (PDF FILE)
+// PARSE RESUME (PDF FILE)
 // ===============================
 export const parseResume = async (file) => {
   const formData = new FormData();
@@ -21,89 +21,86 @@ export const parseResume = async (file) => {
 };
 
 // ===============================
-// ✅ START TEST
+// START TEST
 // ===============================
 export const startTest = async (skill, level = "medium") => {
   const res = await fetch(`${BASE_URL}/start-test`, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ skill, level }),
   });
-
   return res.json();
 };
 
 // ===============================
-// ✅ NEXT QUESTION
+// NEXT QUESTION
 // ===============================
 export const nextQuestion = async (test_id) => {
   const res = await fetch(`${BASE_URL}/next-question`, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ test_id }),
   });
-
   return res.json();
 };
 
 // ===============================
-// ✅ SUBMIT ANSWER
+// SUBMIT ANSWER
 // ===============================
 export const submitAnswer = async (test_id, answer) => {
   const res = await fetch(`${BASE_URL}/submit-answer`, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ test_id, answer }),
   });
-
   return res.json();
 };
 
 // ===============================
-// ✅ EVALUATE SESSION (MAIN)
+// EVALUATE SESSION  ← FIXED
+// Sends all 4 questions + answers at once.
+// Each item in questions_and_answers:
+// {
+//   question:           { full question object },
+//   answer:             "user's answer",
+//   type:               "mcq" | "coding" | "numerical",
+//   time_taken_seconds: number,
+//   rewrite_count:      number,
+//   tab_switches:       number,
+// }
 // ===============================
 export const evaluateSession = async ({
   skill,
   level,
-  question,
-  user_code,
-  time_taken_seconds = 0,
-  rewrite_count = 0,
-  tab_switches = 0,
+  questions_and_answers,
+  test_id = null,
 }) => {
-  const res = await fetch(`${BASE_URL}/evaluate/code`, {
+  const res = await fetch(`${BASE_URL}/evaluate/session`, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       skill,
       level,
-      question,
-      user_code,
-      time_taken_seconds,
-      rewrite_count,
-      tab_switches,
+      questions_and_answers,
+      test_id,
     }),
   });
 
+  if (!res.ok) {
+    const error = await res.json();
+    throw new Error(error.detail || "Evaluation failed");
+  }
+
   return res.json();
 };
+
 // ===============================
-// ✅ PARSE TEXT (NEW - REQUIRED)
+// PARSE TEXT
 // ===============================
 export const parseText = async (text) => {
   const res = await fetch(`${BASE_URL}/parse-text`, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ text }),
   });
 
@@ -114,20 +111,3 @@ export const parseText = async (text) => {
 
   return res.json();
 };
-
-// ===============================
-// ⚠️ OPTIONAL (USE ONLY IF BACKEND EXISTS)
-// ===============================
-/*
-export const evaluateSession = async (payload) => {
-  const res = await fetch(`${BASE_URL}/evaluate/session`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(payload),
-  });
-
-  return res.json();
-};
-*/
