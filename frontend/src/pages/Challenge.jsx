@@ -145,7 +145,7 @@ function Challenge({ skill, onSubmit }) {
       if (res.message === "Test completed") {
         const evaluation = await evaluateSession({
           skill: getSkillName(),
-          level: "medium",
+          level: skill?.level || "medium",
           evaluation_type: "code",
           questions_and_answers: sessionAnswers.current,
         });
