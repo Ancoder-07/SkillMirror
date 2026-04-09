@@ -39,15 +39,9 @@ function App() {
     return null;
   });
 
-  // ✅ Restore page from localStorage on refresh
-  const [page, setPage] = useState(() => {
-    try {
-      const token = localStorage.getItem("token");
-      const stored = localStorage.getItem("user");
-      if (token && stored) return PAGES.RESUME; // logged-in users land on resume step
-    } catch (_) {}
-    return PAGES.LANDING;
-  });
+  // ✅ Restore page from localStorage on refresh — always land on LANDING,
+  //    but keep user/token so "Test your skill set" skips login
+  const [page, setPage] = useState(PAGES.LANDING);
 
   const [profile, setProfile]           = useState(null);
   const [resumeData, setResumeData]     = useState(null);
@@ -65,7 +59,7 @@ function App() {
     if (userData.isNewUser) {
       navigate(PAGES.PROFILE);
     } else {
-      navigate(PAGES.RESUME);
+      navigate(PAGES.LANDING);
     }
   };
 
@@ -82,7 +76,7 @@ function App() {
 
   const handleProfileSave = (profileData) => {
     setProfile(profileData);
-    navigate(PAGES.RESUME);
+    navigate(PAGES.LANDING);
   };
 
   const handleResumeParsed = (data) => {
@@ -104,7 +98,7 @@ function App() {
   const renderPage = () => {
     switch (page) {
       case PAGES.LANDING:
-        return <Landing onStart={() => navigate(PAGES.LOGIN)} onDemo={() => navigate(PAGES.LIVE_CHALLENGES)} />;
+        return <Landing onStart={() => navigate(user ? PAGES.RESUME : PAGES.LOGIN)} onDemo={() => navigate(PAGES.LIVE_CHALLENGES)} />;
       case PAGES.LOGIN:
         return <Login onLogin={handleLogin} />;
       case PAGES.PROFILE:
@@ -120,7 +114,7 @@ function App() {
       case PAGES.LIVE_CHALLENGES:
         return <LiveChallenges />;
       default:
-        return <Landing onStart={() => navigate(PAGES.LOGIN)} />;
+        return <Landing onStart={() => navigate(user ? PAGES.RESUME : PAGES.LOGIN)} />;
     }
   };
 

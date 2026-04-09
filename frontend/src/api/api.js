@@ -1,5 +1,13 @@
 const BASE_URL = "http://127.0.0.1:8000/api";
 
+const getAuthHeaders = () => {
+  const token = localStorage.getItem("token");
+
+  return {
+    Authorization: `Bearer ${token}`,
+  };
+};
+
 // ===============================
 // ✅ PARSE RESUME (PDF FILE)
 // ===============================
@@ -9,6 +17,9 @@ export const parseResume = async (file) => {
 
   const res = await fetch(`${BASE_URL}/parse-resume`, {
     method: "POST",
+    headers: {
+      ...getAuthHeaders(),
+    },
     body: formData,
   });
 
@@ -28,6 +39,7 @@ export const startTest = async (skill, level = "medium") => {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
+      ...getAuthHeaders(),
     },
     body: JSON.stringify({ skill, level }),
   });
@@ -36,13 +48,14 @@ export const startTest = async (skill, level = "medium") => {
 };
 
 // ===============================
-// ✅ NEXT QUESTION
+// ✅ NEXT QUESTION (FIXED)
 // ===============================
 export const nextQuestion = async (test_id) => {
   const res = await fetch(`${BASE_URL}/next-question`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
+      ...getAuthHeaders(),   // 🔥 ADDED
     },
     body: JSON.stringify({ test_id }),
   });
@@ -51,13 +64,14 @@ export const nextQuestion = async (test_id) => {
 };
 
 // ===============================
-// ✅ SUBMIT ANSWER
+// ✅ SUBMIT ANSWER (FIXED)
 // ===============================
 export const submitAnswer = async (test_id, answer) => {
   const res = await fetch(`${BASE_URL}/submit-answer`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
+      ...getAuthHeaders(),   // 🔥 ADDED
     },
     body: JSON.stringify({ test_id, answer }),
   });
@@ -66,7 +80,7 @@ export const submitAnswer = async (test_id, answer) => {
 };
 
 // ===============================
-// ✅ EVALUATE SESSION (MAIN)
+// ✅ EVALUATE SESSION (FIXED)
 // ===============================
 export const evaluateSession = async ({
   skill,
@@ -81,6 +95,7 @@ export const evaluateSession = async ({
     method: "POST",
     headers: {
       "Content-Type": "application/json",
+      ...getAuthHeaders(),   // 🔥 ADDED
     },
     body: JSON.stringify({
       skill,
@@ -95,14 +110,16 @@ export const evaluateSession = async ({
 
   return res.json();
 };
+
 // ===============================
-// ✅ PARSE TEXT (NEW - REQUIRED)
+// ✅ PARSE TEXT (FIXED)
 // ===============================
 export const parseText = async (text) => {
   const res = await fetch(`${BASE_URL}/parse-text`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
+      ...getAuthHeaders(),   // 🔥 ADDED
     },
     body: JSON.stringify({ text }),
   });
@@ -114,20 +131,3 @@ export const parseText = async (text) => {
 
   return res.json();
 };
-
-// ===============================
-// ⚠️ OPTIONAL (USE ONLY IF BACKEND EXISTS)
-// ===============================
-/*
-export const evaluateSession = async (payload) => {
-  const res = await fetch(`${BASE_URL}/evaluate/session`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(payload),
-  });
-
-  return res.json();
-};
-*/
