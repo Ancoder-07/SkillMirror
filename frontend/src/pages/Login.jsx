@@ -1,3 +1,4 @@
+import axios from "axios";
 import React, { useState } from 'react';
 import { Card, Input, BtnPrimary } from '../components/ui';
 
@@ -11,7 +12,7 @@ function Login({ onLogin }) {
     setError('');
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async(e) => {
     e.preventDefault();
     if (!form.email || !form.password) {
       setError('Please fill in all fields.');
@@ -21,8 +22,43 @@ function Login({ onLogin }) {
       setError('Password must be at least 6 characters.');
       return;
     }
-    // Mock auth — replace with real API call
-    onLogin({ email: form.email, name: form.email.split('@')[0] });
+     try {
+    let response;
+
+    if (isSignup) {
+      // SIGNUP
+      await axios.post("http://127.0.0.1:8000/api/auth/signup", {
+        name: form.name,
+        email: form.email,
+        password: form.password,
+      });
+
+      alert("Signup successful! Please login.");
+      setIsSignup(false);
+      return;
+    } else {
+      // LOGIN
+      response = await axios.post("http://127.0.0.1:8000/api/auth/login", {
+        email: form.email,
+        password: form.password,
+      });
+    }
+
+    // Save token
+    localStorage.setItem("token", response.data.access_token);
+
+    // Pass user forward
+    onLogin({
+      email: form.email,
+      name: form.email.split("@")[0],
+    });
+
+  } catch (error) {
+  console.error(error);
+
+  const msg = error.response?.data?.detail || "Something went wrong";
+  setError(msg);
+}
   };
 
   return (
