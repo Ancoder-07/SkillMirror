@@ -3,6 +3,7 @@ from pydantic import BaseModel
 from typing import Optional
 
 from app.services.evaluation import evaluate_code, evaluate_verbal
+from app.core.database import evaluations_collection
 
 router = APIRouter()
 
@@ -84,3 +85,19 @@ async def evaluate_verbal_endpoint(request: EvaluateVerbalRequest):
         raise HTTPException(status_code=502, detail=str(exc))
     except Exception:
         raise HTTPException(status_code=500, detail="Internal server error")
+    
+@router.get("/result/{test_id}")
+async def get_result(test_id: str):
+    """
+    Fetch full test result including answers, evaluations, and final score
+    """
+
+    data = await evaluations_collection.find_one({"test_id": test_id})
+
+    if not data:
+        raise HTTPException(status_code=404, detail="Result not found")
+
+    # Convert MongoDB _id to string
+    data["_id"] = str(data["_id"])
+
+    return data
