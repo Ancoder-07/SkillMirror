@@ -1,8 +1,10 @@
+
+
+@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;500;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-
-@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;500;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
 
 :root {
   --bg: #0a0a0b;
@@ -32,10 +34,18 @@
   padding: 0;
 }
 
+* {
+  font-family: var(--font);
+}
+
+code, pre {
+  font-family: var(--mono);
+}
+
 body {
   background: var(--bg);
   color: var(--text);
-  font-family: var(--font);
+  font-family: var(--font) !important;
   overflow-x: hidden;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
