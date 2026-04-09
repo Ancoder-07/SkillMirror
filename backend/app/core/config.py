@@ -10,6 +10,7 @@ class Settings:
 
     # 🔹 AI
     SEGMIND_API_KEY: str = os.getenv("SEGMIND_API_KEY", "")
+    MONGODB_URI: str = os.getenv("MONGODB_URI")
 
 
 settings = Settings()

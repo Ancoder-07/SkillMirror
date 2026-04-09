@@ -1,0 +1,20 @@
+# Environments
+.env
+.env.local
+
+# Python/FastAPI
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+env/
+
+# Node/React Frontend
+node_modules/
+dist/
+build/
+
+# OS generated files
+.DS_Store
+Thumbs.db

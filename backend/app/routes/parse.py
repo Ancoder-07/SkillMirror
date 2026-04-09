@@ -5,6 +5,7 @@ import io
 
 from app.models.schema import DeveloperProfile
 from app.services.parse import extract_full_profile
+from app.core.database import profiles_collection
 
 router = APIRouter()
 
@@ -55,6 +56,7 @@ async def parse_resume(file: UploadFile = File(...)):
             raise HTTPException(status_code=400, detail="Could not extract text from PDF")
 
         full_profile = await extract_full_profile(raw_text)
+        await profiles_collection.insert_one(full_profile.copy())
         return full_profile
 
     except ValueError as exc:
