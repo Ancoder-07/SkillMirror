@@ -4,12 +4,11 @@ from app.routes import auth
 
 from app.core.config import settings
 
-# 🔥 Import all your routers
+# 🔥 Import all your routers (ONLY ONCE)
 from app.routes.generate import router as generate_router
 from app.routes.flow import router as flow_router
 from app.routes.run_code import router as run_code_router
 from app.routes.parse import router as parse_router
-# (later: answers_router)
 from app.routes.evaluation import router as evaluation_router
 
 
@@ -23,13 +22,13 @@ def get_application() -> FastAPI:
     # 🔥 CORS (important for frontend)
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],  # change later
+        allow_origins=["*"],
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
     )
 
-    # 🔥 Prefix all routes with /api
+    # 🔥 Include ALL routers INSIDE function
     app.include_router(generate_router, prefix="/api")
     app.include_router(flow_router, prefix="/api")
     app.include_router(run_code_router, prefix="/api")
@@ -40,9 +39,11 @@ def get_application() -> FastAPI:
     return app
 
 
+# ✅ Create app
 app = get_application()
 
 
+# ✅ Health check
 @app.get("/")
 def health_check():
     return {"status": "Skill Mirror backend is live 🚀"}
