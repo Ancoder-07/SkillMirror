@@ -1,8 +1,12 @@
 import React, { useState, useRef } from 'react';
 import { StepHeader, BtnPrimary } from '../components/ui';
-import { parseResume } from "../api/api";
+import { parseResume, parseText } from '../api/api';
 
+/* ─────────────────────────────────────────
+   Constants
+───────────────────────────────────────── */
 const TAG_LABELS = { high: 'High claim', med: 'Medium claim', low: 'Low claim' };
+
 const TAG_STYLES = {
   high: {
     active:   { bg: 'rgba(226,75,74,0.12)',  border: '#E24B4A', color: '#E24B4A' },
@@ -20,6 +24,9 @@ const TAG_STYLES = {
 
 const TABS = ['PDF upload', 'Paste text'];
 
+/* ─────────────────────────────────────────
+   TagSelector  (her UI)
+───────────────────────────────────────── */
 function TagSelector({ value, onChange }) {
   return (
     <div style={{ display: 'flex', gap: 6 }}>
@@ -52,6 +59,21 @@ function TagSelector({ value, onChange }) {
   );
 }
 
+/* ─────────────────────────────────────────
+   Shared skill mapper  (your logic, DRY'd)
+───────────────────────────────────────── */
+const mapSkills = (data, sourceLabel = 'resume') =>
+  data.all_skills.map((skill) => ({
+    name: skill,
+    evidence: data.boldest_claims?.includes(skill)
+      ? `Strong evidence in ${sourceLabel}`
+      : `Mentioned in ${sourceLabel}`,
+    tag: data.boldest_claims?.includes(skill) ? 'high' : 'med',
+  }));
+
+/* ─────────────────────────────────────────
+   ResumeUpload
+───────────────────────────────────────── */
 function ResumeUpload({ onNext }) {
   const [activeTab, setActiveTab] = useState(0);
   const [file, setFile]           = useState(null);
@@ -63,45 +85,64 @@ function ResumeUpload({ onNext }) {
   const [dragging, setDragging]   = useState(false);
   const fileRef = useRef();
 
+  /* ── Tab switch — your clean reset ── */
+  const handleTabSwitch = (i) => {
+    setActiveTab(i);
+    setParsed(false);
+    setClaims([]);
+    setError(null);
+  };
+
+  /* ── PDF parse — your logic ── */
   const handleFile = async (f) => {
     if (!f) return;
-    if (!f.name.endsWith('.pdf')) { setError('Only PDF files are supported.'); return; }
-    setFile(f); setError(null); setLoading(true); setParsed(false); setClaims([]);
+    if (!f.name.endsWith('.pdf')) {
+      setError('Only PDF files are supported.');
+      return;
+    }
+    setFile(f);
+    setError(null);
+    setLoading(true);
+    setParsed(false);
+    setClaims([]);
+
     try {
       const data = await parseResume(f);
-      const mapped = data.all_skills.map((skill) => ({
-        name: skill,
-        evidence: data.boldest_claims?.includes(skill) ? 'Strong evidence in resume' : 'Mentioned in resume',
-        tag: data.boldest_claims?.includes(skill) ? 'high' : 'med',
-      }));
-      setClaims(mapped); setParsed(true);
-    } catch (err) { setError(err.message); }
-    finally { setLoading(false); }
+      setClaims(mapSkills(data, 'resume'));
+      setParsed(true);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
+  /* ── Text parse — your fix: parseText, not blob hack ── */
   const handleParseText = async () => {
-    if (text.length < 50) return;
-    setError(null); setLoading(true); setParsed(false); setClaims([]);
+    if (text.length < 10) return;
+    setError(null);
+    setLoading(true);
+    setParsed(false);
+    setClaims([]);
+
     try {
-      const blob = new Blob([text], { type: 'application/pdf' });
-      const textFile = new File([blob], 'resume.txt', { type: 'text/plain' });
-      const data = await parseResume(textFile);
-      const mapped = data.all_skills.map((skill) => ({
-        name: skill,
-        evidence: data.boldest_claims?.includes(skill) ? 'Strong evidence in resume' : 'Mentioned in resume',
-        tag: data.boldest_claims?.includes(skill) ? 'high' : 'med',
-      }));
-      setClaims(mapped); setParsed(true);
-    } catch (err) { setError(err.message); }
-    finally { setLoading(false); }
+      const data = await parseText(text);
+      setClaims(mapSkills(data, 'text'));
+      setParsed(true);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleTagChange = (index, newTag) => {
+  /* ── Tag edit ── */
+  const handleTagChange = (index, newTag) =>
     setClaims((prev) => prev.map((c, i) => (i === index ? { ...c, tag: newTag } : c)));
-  };
 
   const handleDrop = (e) => {
-    e.preventDefault(); setDragging(false);
+    e.preventDefault();
+    setDragging(false);
     const f = e.dataTransfer.files[0];
     if (f) handleFile(f);
   };
@@ -117,12 +158,12 @@ function ResumeUpload({ onNext }) {
         subtitle="System reads your resume and extracts every skill claim. You can adjust the confidence level for each skill before proceeding."
       />
 
-      {/* Tabs */}
+      {/* ── Tabs — her UI ── */}
       <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
         {TABS.map((tab, i) => (
           <button
             key={tab}
-            onClick={() => { setActiveTab(i); setParsed(false); setClaims([]); setError(null); }}
+            onClick={() => handleTabSwitch(i)}
             style={{
               padding: '6px 16px',
               borderRadius: 8,
@@ -141,7 +182,7 @@ function ResumeUpload({ onNext }) {
         ))}
       </div>
 
-      {/* PDF Upload Tab */}
+      {/* ── PDF Upload tab — her UI ── */}
       {activeTab === 0 && (
         <div
           onClick={() => fileRef.current.click()}
@@ -167,7 +208,6 @@ function ResumeUpload({ onNext }) {
             onChange={(e) => handleFile(e.target.files[0])}
           />
 
-          {/* Upload icon */}
           {!file && !loading && (
             <div style={{
               width: 48, height: 48, borderRadius: 12,
@@ -241,7 +281,7 @@ function ResumeUpload({ onNext }) {
         </div>
       )}
 
-      {/* Paste Text Tab */}
+      {/* ── Paste text tab — her UI ── */}
       {activeTab === 1 && (
         <div style={{ marginBottom: 24 }}>
           <textarea
@@ -266,7 +306,8 @@ function ResumeUpload({ onNext }) {
             onFocus={(e) => (e.target.style.borderColor = 'var(--purple)')}
             onBlur={(e)  => (e.target.style.borderColor = 'var(--border2)')}
           />
-          {text.length > 50 && (
+          {/* your threshold: 10 chars */}
+          {text.length > 10 && (
             <button
               onClick={handleParseText}
               disabled={loading}
@@ -288,17 +329,14 @@ function ResumeUpload({ onNext }) {
             </button>
           )}
           {error && (
-            <p style={{
-              marginTop: 8, fontSize: 12, fontFamily: 'monospace',
-              color: '#E24B4A',
-            }}>
+            <p style={{ marginTop: 8, fontSize: 12, fontFamily: 'monospace', color: '#E24B4A' }}>
               ✗ {error}
             </p>
           )}
         </div>
       )}
 
-      {/* Extracted Claims Table */}
+      {/* ── Extracted claims table — her UI ── */}
       {parsed && claims.length > 0 && (
         <div style={{
           borderRadius: 12,
@@ -307,7 +345,6 @@ function ResumeUpload({ onNext }) {
           background: 'var(--card)',
           marginBottom: 24,
         }}>
-          {/* Table Header */}
           <div style={{
             display: 'flex',
             alignItems: 'center',
@@ -316,21 +353,14 @@ function ResumeUpload({ onNext }) {
             borderBottom: '0.5px solid var(--border)',
             background: 'var(--surface)',
           }}>
-            <span style={{
-              fontSize: 11, fontFamily: 'monospace', letterSpacing: '0.12em',
-              color: 'var(--dim)', textTransform: 'uppercase',
-            }}>
+            <span style={{ fontSize: 11, fontFamily: 'monospace', letterSpacing: '0.12em', color: 'var(--dim)', textTransform: 'uppercase' }}>
               Extracted Claims
             </span>
-            <span style={{
-              fontSize: 11, fontFamily: 'monospace',
-              color: 'var(--purple)', fontWeight: 600,
-            }}>
+            <span style={{ fontSize: 11, fontFamily: 'monospace', color: 'var(--purple)', fontWeight: 600 }}>
               {claims.length} skills detected
             </span>
           </div>
 
-          {/* Instruction hint */}
           <div style={{
             padding: '8px 20px',
             fontSize: 11,
@@ -343,7 +373,6 @@ function ResumeUpload({ onNext }) {
             Adjust confidence level for each skill before proceeding ↓
           </div>
 
-          {/* Column headers */}
           <div style={{
             display: 'grid',
             gridTemplateColumns: '1fr 2fr auto',
@@ -353,16 +382,12 @@ function ResumeUpload({ onNext }) {
             gap: 16,
           }}>
             {['Skill', 'Evidence', 'Confidence'].map((h) => (
-              <span key={h} style={{
-                fontSize: 10, fontFamily: 'monospace',
-                color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '0.1em',
-              }}>
+              <span key={h} style={{ fontSize: 10, fontFamily: 'monospace', color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
                 {h}
               </span>
             ))}
           </div>
 
-          {/* Rows */}
           {claims.map((claim, i) => (
             <div
               key={claim.name}
@@ -386,7 +411,7 @@ function ResumeUpload({ onNext }) {
         </div>
       )}
 
-      {/* Empty state */}
+      {/* ── Empty state — her UI ── */}
       {!parsed && !loading && (
         <div style={{
           textAlign: 'center', fontSize: 12,
