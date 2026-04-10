@@ -252,8 +252,15 @@ function Challenge({ skill, onSubmit }) {
     const interval = setInterval(() => {
       setTimeLeft((prev) => (prev > 0 ? prev - 1 : 0));
     }, 1000);
+
     return () => clearInterval(interval);
-  }, [question]);
+  }, []); // ✅ IMPORTANT: remove dependency
+  
+  useEffect(() => {
+    if (timeLeft === 0) {
+      handleNext(); // or directly submit
+    }
+  }, [timeLeft]);
 
   /* ── Tab-switch tracking ── */
   useEffect(() => {
@@ -295,7 +302,7 @@ function Challenge({ skill, onSubmit }) {
     setDisplayKeystrokes(0);
     setDisplayRewrites(0);
     setDisplayTabSwitches(0);
-    setTimeLeft(20 * 60);
+    //setTimeLeft(20 * 60);
   };
 
   /* ── Next / Submit ── */
