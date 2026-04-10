@@ -16,6 +16,7 @@ const TAG_LABELS = {
 
 function SkillSelection({ resumeData, onSelect }) {
   const [selected, setSelected] = useState(null);
+  const [loading, setLoading] = useState(false);
 
   // ✅ SINGLE SOURCE OF TRUTH (WORKS FOR BOTH TEXT + RESUME)
   const claims = useMemo(() => {
@@ -26,45 +27,46 @@ function SkillSelection({ resumeData, onSelect }) {
   }, [resumeData]);
 
   const handleStart = async () => {
-    if (selected === null) return;
+  if (selected === null) return;
 
-    const claim = claims[selected];
-    if (!claim) return;
+  const claim = claims[selected];
+  if (!claim) return;
 
-    const levelMap = {
-      high: "hard",
-      med: "medium",
-      low: "easy",
-    };
-
-    const level = levelMap[claim.tag] || "medium";
-
-    try {
-      const res = await startTest(claim.name, level);
-
-      if (!res?.test_id || !res?.question) {
-        alert("Backend error ❌");
-        return;
-      }
-
-      // ✅ Store session
-      localStorage.setItem("test_id", res.test_id);
-      localStorage.setItem("question", JSON.stringify(res.question));
-
-      // optional
-      localStorage.setItem("selected_skill", JSON.stringify(claim));
-
-      onSelect({
-        label: claim.name,
-        level,
-        type: claim.type || "general",
-      });
-
-    } catch (err) {
-      console.error(err);
-      alert("Failed to start test ❌");
-    }
+  const levelMap = {
+    high: "hard",
+    med: "medium",
+    low: "easy",
   };
+
+  const level = levelMap[claim.tag] || "medium";
+
+  try {
+    setLoading(true); // 🔥 ADD THIS
+
+    const res = await startTest(claim.name, level);
+
+    if (!res?.test_id || !res?.question) {
+      alert("Backend error ❌");
+      setLoading(false);
+      return;
+    }
+
+    localStorage.setItem("test_id", res.test_id);
+    localStorage.setItem("question", JSON.stringify(res.question));
+    localStorage.setItem("selected_skill", JSON.stringify(claim));
+
+    onSelect({
+      label: claim.name,
+      level,
+      type: claim.type || "general",
+    });
+
+  } catch (err) {
+    console.error(err);
+    alert("Failed to start test ❌");
+    setLoading(false);
+  }
+};
 
   return (
     <div style={{ maxWidth: 860, margin: "0 auto", padding: "3rem 2rem" }}>
@@ -173,9 +175,39 @@ function SkillSelection({ resumeData, onSelect }) {
       </div>
 
       <div style={{ marginTop: "20px", textAlign: "right" }}>
-        <BtnPrimary onClick={handleStart} disabled={selected === null}>
-          Start Test →
-        </BtnPrimary>
+        <BtnPrimary
+  onClick={handleStart}
+  disabled={selected === null || loading}
+>
+  {loading ? (
+    <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+      
+      {/* Spinner */}
+      <span
+        style={{
+          width: 14,
+          height: 14,
+          borderRadius: "50%",
+          border: "2px solid rgba(255,255,255,0.3)",
+          borderTop: "2px solid #fff",
+          animation: "spin 0.8s linear infinite",
+        }}
+      />
+
+      Starting...
+    </span>
+  ) : (
+    "Start Test →"
+  )}
+
+  <style>
+    {`
+      @keyframes spin {
+        to { transform: rotate(360deg); }
+      }
+    `}
+  </style>
+</BtnPrimary>
       </div>
     </div>
   );
