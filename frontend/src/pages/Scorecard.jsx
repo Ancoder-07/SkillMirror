@@ -115,15 +115,15 @@ function ScoreRing({ pct }) {
 
   return (
     <svg width="140" height="140" viewBox="0 0 140 140">
-      {/* Glow track */}
+      {/* Background track */}
       <circle cx="70" cy="70" r={r} fill="none"
-        stroke="rgba(255,255,255,0.05)" strokeWidth="10" />
-      {/* Progress arc */}
+        stroke="rgba(255,255,255,0.07)" strokeWidth="10" />
+      {/* Progress arc — starts at 12 o'clock via negative offset = -circ*0.25 */}
       <circle cx="70" cy="70" r={r} fill="none"
         stroke={color} strokeWidth="10" strokeLinecap="round"
-        strokeDasharray={`${(pct / 100) * circ} ${circ}`}
-        strokeDashoffset={circ * 0.25}
-        style={{ transition: "stroke-dasharray 1.2s cubic-bezier(.4,0,.2,1)", filter: `drop-shadow(0 0 6px ${color}88)` }}
+        strokeDasharray={`${(displayed / 100) * circ} ${circ}`}
+        strokeDashoffset={-(circ * 0.25)}
+        style={{ filter: `drop-shadow(0 0 6px ${color}88)` }}
       />
       {/* Center number */}
       <text x="70" y="63" textAnchor="middle" dominantBaseline="central"
