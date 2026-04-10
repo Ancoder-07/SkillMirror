@@ -411,16 +411,6 @@ function ResumeUpload({ onNext }) {
         </div>
       )}
 
-      {/* ── Empty state — her UI ── */}
-      {!parsed && !loading && (
-        <div style={{
-          textAlign: 'center', fontSize: 12,
-          fontFamily: 'monospace', color: 'var(--dim)',
-          padding: '24px 0',
-        }}>
-          Upload a resume to see extracted skill claims
-        </div>
-      )}
 
       <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 8 }}>
         <BtnPrimary onClick={handleNext} disabled={!canProceed}>
