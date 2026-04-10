@@ -26,7 +26,7 @@ const getBoilerplate = (q, skill) => {
     return `public class Solution {\n    public static void main(String[] args) {\n        // your code here\n    }\n}\n`;
   if (lang === "cpp")
     return `#include <iostream>\nusing namespace std;\n\nint main() {\n    // your code here\n    return 0;\n}\n`;
-  return `function solution() {\n  // your code here\n}\n`;
+  return ` \n  // your code here\n\n`;
 };
 
 const formatTime = (seconds) => {
